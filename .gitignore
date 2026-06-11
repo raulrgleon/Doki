@@ -4,3 +4,4 @@ Archive.zip
 .gh-config/
 .env
 node_modules/
+data/

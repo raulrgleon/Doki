@@ -17,11 +17,32 @@
 <body>
   <div class="app">
     <header class="header">
-      <p class="header__eyebrow">FIFA World Cup 2026</p>
-      <p class="header__edition">Loma del Gato Edición</p>
-      <h1>Calendario</h1>
-      <p class="header__subtitle" id="header-subtitle">104 partidos · 48 selecciones</p>
+      <div class="header__row">
+        <div>
+          <p class="header__eyebrow">FIFA World Cup 2026</p>
+          <p class="header__edition">Loma del Gato Edición</p>
+          <h1>Calendario</h1>
+          <p class="header__subtitle" id="header-subtitle">104 partidos · 48 selecciones</p>
+        </div>
+        <div class="header__tools">
+          <button class="icon-btn" id="theme-toggle" type="button" title="Tema">Auto</button>
+          <button class="icon-btn" id="notif-btn" type="button" title="Notificaciones push" aria-label="Activar notificaciones">🔔</button>
+        </div>
+      </div>
     </header>
+
+    <section class="today-widget glass" id="today-widget" hidden>
+      <h2 class="today-widget__title">Partidos de hoy</h2>
+      <ul class="today-widget__list" id="today-matches"></ul>
+    </section>
+
+    <nav class="app-tabs glass" aria-label="Vistas">
+      <button class="app-tab app-tab--active" type="button" data-tab="calendar">Calendario</button>
+      <button class="app-tab" type="button" data-tab="agenda">Agenda</button>
+      <button class="app-tab" type="button" data-tab="standings">Grupos</button>
+      <button class="app-tab" type="button" data-tab="bracket">Eliminatorias</button>
+      <button class="app-tab" type="button" data-tab="venues">Sedes</button>
+    </nav>
 
     <section class="next-match glass" id="next-match-banner" aria-live="polite" hidden>
       <div class="next-match__content">
@@ -69,9 +90,11 @@
 
       <div class="segmented" role="tablist" aria-label="Favoritos">
         <button class="segmented__btn segmented__btn--active" data-team="all" type="button">Todos</button>
+        <button class="segmented__btn" data-team="favorites" type="button">⭐ Fav</button>
         <button class="segmented__btn" data-team="argentina" type="button">🇦🇷 ARG</button>
         <button class="segmented__btn" data-team="spain" type="button">🇪🇸 ESP</button>
         <button class="segmented__btn" data-team="uruguay" type="button">🇺🇾 URU</button>
+        <button class="segmented__btn segmented__btn--icon" id="open-favorites" type="button" title="Editar favoritos">⚙️</button>
       </div>
 
       <div class="controls__actions">
@@ -86,7 +109,7 @@
       </div>
     </section>
 
-    <section class="layout">
+    <section class="layout" data-view="calendar">
       <div class="panel glass">
         <div class="panel__header">
           <button class="icon-btn" id="prev-month" type="button" aria-label="Mes anterior">
@@ -111,6 +134,30 @@
         </div>
         <ul class="match-list" id="match-list"></ul>
       </aside>
+    </section>
+
+    <section class="view-panel glass" data-view="agenda" hidden>
+      <h2>Agenda</h2>
+      <p class="panel__hint">Próximos partidos según tu filtro</p>
+      <ul class="match-list" id="agenda-list"></ul>
+    </section>
+
+    <section class="view-panel glass" data-view="standings" hidden>
+      <h2>Tabla de posiciones</h2>
+      <p class="panel__hint">Grupos A–L · Se actualiza con resultados en vivo</p>
+      <div class="standings-grid" id="standings-grid"></div>
+    </section>
+
+    <section class="view-panel glass" data-view="bracket" hidden>
+      <h2>Eliminatorias</h2>
+      <p class="panel__hint">Toca un partido para ver detalle con Doki</p>
+      <div class="bracket-tree" id="bracket-tree"></div>
+    </section>
+
+    <section class="view-panel glass" data-view="venues" hidden>
+      <h2>Mapa de sedes</h2>
+      <p class="panel__hint">Toca una sede para filtrar el calendario</p>
+      <div class="venues-grid" id="venues-grid"></div>
     </section>
 
     <footer class="footer">
@@ -165,13 +212,37 @@
           <input type="checkbox" id="include-knockouts" class="toggle">
         </label>
 
+        <div class="webcal-block glass-inset">
+          <p class="export-preview__label">Suscripción iPhone (webcal)</p>
+          <p class="modal__desc">Añade el calendario a Calendario con alertas 1 h y 15 min antes.</p>
+          <a class="webcal-link" id="webcal-link" href="#">webcal://…</a>
+        </div>
+
         <ul class="export-match-preview" id="export-match-preview"></ul>
       </div>
     </div>
   </dialog>
 
+  <dialog class="modal" id="favorites-modal">
+    <div class="modal__sheet">
+      <header class="modal__header">
+        <button class="modal__close" type="button" id="close-favorites" aria-label="Cerrar">Cancelar</button>
+        <h2>Mis favoritos</h2>
+        <button class="modal__done" type="button" id="apply-favorites">Aplicar</button>
+      </header>
+      <div class="modal__body">
+        <p class="modal__desc">Elige las selecciones que quieres seguir. Se usan en filtros, notificaciones y webcal.</p>
+        <div class="favorites-grid" id="favorites-grid"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
+
   <script src="teams.js"></script>
   <script src="matches-data.js"></script>
+  <script src="venues.js"></script>
+  <script src="features.js"></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

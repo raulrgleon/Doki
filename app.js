@@ -185,7 +185,7 @@ const BASE_MATCHES = RAW_MATCHES.map(buildBaseMatch);
 
 function loadPrefs() {
   const country = localStorage.getItem('wc2026-country');
-  if (country && (country === 'all' || TEAMS[country])) activeCountry = country;
+  if (country && (country === 'all' || country === 'favorites' || TEAMS[country])) activeCountry = country;
 
   const mode = localStorage.getItem('wc2026-export-mode');
   if (mode === 'all' || mode === 'custom') exportMode = mode;
@@ -370,6 +370,7 @@ function rebuildMatches() {
 
 function applyScores(scores, { silent = false } = {}) {
   const prevFinished = lastFinishedCount;
+  const oldCache = { ...SCORES_CACHE };
   SCORES_CACHE = { ...SCORES_CACHE, ...scores };
   rebuildMatches();
 
@@ -377,9 +378,12 @@ function applyScores(scores, { silent = false } = {}) {
   const hadNewResults = finished > prevFinished;
   lastFinishedCount = finished;
 
+  if (window.WCFeatures) WCFeatures.onScoresUpdated(oldCache, SCORES_CACHE);
+
   renderCalendar();
   renderMatchList();
   renderNextMatchBanner();
+  if (window.WCFeatures) WCFeatures.refreshAll();
 
   if (!silent && hadNewResults) {
     requestDokiAI('score_update');
@@ -599,12 +603,21 @@ function startDokiAuto() {
 
 function matchInvolvesCountry(match, countryId) {
   if (countryId === 'all') return true;
-  if (match.knockout) return false;
+  if (countryId === 'favorites') {
+    if (window.WCFeatures) return WCFeatures.matchPassesFavorites(match);
+    if (match.knockout) return includeKnockouts;
+    return match.teamIds.some((id) => ['argentina', 'spain', 'uruguay'].includes(id));
+  }
+  if (match.knockout) return includeKnockouts && match.teamIds.includes(countryId);
   return match.teamIds.includes(countryId);
 }
 
 function getFilteredMatches() {
-  return MATCHES.filter((m) => matchInvolvesCountry(m, activeCountry));
+  return MATCHES.filter((m) => {
+    if (!matchInvolvesCountry(m, activeCountry)) return false;
+    if (window.WCFeatures && !WCFeatures.matchPassesVenue(m)) return false;
+    return true;
+  });
 }
 
 function getVisibleMatches() {
@@ -686,6 +699,10 @@ function populateTimezoneSelect() {
 
 function populateCountryFilter() {
   const select = document.getElementById('country-filter');
+  const favOpt = document.createElement('option');
+  favOpt.value = 'favorites';
+  favOpt.textContent = '⭐ Mis favoritos';
+  select.appendChild(favOpt);
   const groups = {};
 
   Object.entries(TEAMS)
@@ -819,17 +836,19 @@ function renderMatchList() {
     subtitle.textContent = selectedDay
       ? `${display.length} partido${display.length === 1 ? '' : 's'}`
       : `${monthMatches.length} partidos · ${abbr}`;
+  } else if (activeCountry === 'favorites') {
+    subtitle.textContent = '⭐ Mis favoritos';
   } else {
     subtitle.textContent = `${TEAMS[activeCountry].flag} ${TEAMS[activeCountry].name}`;
   }
 
+  const renderCard = window.WCFeatures?.renderMatchCardInteractive || renderMatchCard;
   list.innerHTML = groupMatchesByDate(display)
     .map((item) => {
       if (item.type === 'header') {
         return `<li class="match-day-header">${item.label}</li>`;
       }
-      const m = item.match;
-      return renderMatchCard(m);
+      return renderCard(item.match);
     })
     .join('');
 
@@ -913,6 +932,7 @@ function updateExportUI() {
   const preview = document.getElementById('export-match-preview');
   if (count === 0) {
     preview.innerHTML = '<li class="export-match-preview__empty">No hay partidos con esta selección.</li>';
+    if (window.WCFeatures) WCFeatures.updateWebcalLink();
     return;
   }
 
@@ -929,6 +949,7 @@ function updateExportUI() {
   }
 
   preview.innerHTML = items.join('');
+  if (window.WCFeatures) WCFeatures.updateWebcalLink();
 }
 
 function setExportMode(mode) {
@@ -944,9 +965,12 @@ function setExportMode(mode) {
 function openExportModal() {
   const modal = document.getElementById('export-modal');
 
-  if (activeCountry !== 'all') {
+  if (activeCountry !== 'all' && activeCountry !== 'favorites') {
     exportMode = 'custom';
     exportSelections = new Set([activeCountry]);
+  } else if (activeCountry === 'favorites' && window.WCFeatures) {
+    exportMode = 'custom';
+    exportSelections = new Set(WCFeatures.getCustomFavorites());
   }
 
   setExportMode(exportMode);
@@ -1119,6 +1143,7 @@ function setTimezone(tz) {
   renderCalendar();
   renderMatchList();
   renderNextMatchBanner();
+  if (window.WCFeatures) WCFeatures.refreshAll();
   if (document.getElementById('export-modal').open) updateExportUI();
 }
 
@@ -1126,14 +1151,21 @@ function setActiveCountry(country) {
   activeCountry = country;
   selectedDay = null;
   dokiManualOverride = false;
-  document.getElementById('country-filter').value = country;
-  document.querySelectorAll('.segmented__btn').forEach((btn) => {
+  const filter = document.getElementById('country-filter');
+  if (filter.querySelector(`option[value="${country}"]`) || country === 'all' || country === 'favorites') {
+    filter.value = country;
+  }
+  document.querySelectorAll('.segmented__btn[data-team]').forEach((btn) => {
     btn.classList.toggle('segmented__btn--active', btn.dataset.team === country);
   });
   savePrefs();
   renderCalendar();
   renderMatchList();
   renderNextMatchBanner();
+  if (window.WCFeatures) {
+    WCFeatures.refreshAll();
+    WCFeatures.scheduleNotifications();
+  }
   dokiManualOverride = false;
   requestDokiAI('context', { force: true });
 }
@@ -1175,6 +1207,13 @@ function setupExportModal() {
     includeKnockouts = e.target.checked;
     updateExportUI();
     savePrefs();
+    renderCalendar();
+    renderMatchList();
+    if (window.WCFeatures) {
+      WCFeatures.refreshAll();
+      WCFeatures.scheduleNotifications();
+      WCFeatures.updateWebcalLink();
+    }
   });
 
   document.getElementById('export-search').addEventListener('input', (e) => {
@@ -1191,7 +1230,7 @@ function setupFilters() {
     setActiveCountry(e.target.value);
   });
 
-  document.querySelectorAll('.segmented__btn').forEach((btn) => {
+  document.querySelectorAll('.segmented__btn[data-team]').forEach((btn) => {
     btn.addEventListener('click', () => setActiveCountry(btn.dataset.team));
   });
 }
@@ -1265,6 +1304,7 @@ function init() {
   setupExportModal();
   setupShare();
   setupDoki();
+  if (window.WCFeatures) WCFeatures.init();
 }
 
 async function bootAsync() {

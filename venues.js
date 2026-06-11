@@ -1,0 +1,18 @@
+const VENUES = {
+  'Mexico City': { country: '🇲🇽', city: 'Ciudad de México', abbr: 'CDMX' },
+  Guadalajara: { country: '🇲🇽', city: 'Guadalajara', abbr: 'GDL' },
+  Monterrey: { country: '🇲🇽', city: 'Monterrey', abbr: 'MTY' },
+  Toronto: { country: '🇨🇦', city: 'Toronto', abbr: 'TOR' },
+  Vancouver: { country: '🇨🇦', city: 'Vancouver', abbr: 'VAN' },
+  'Los Angeles': { country: '🇺🇸', city: 'Los Ángeles', abbr: 'LA' },
+  'San Francisco Bay Area': { country: '🇺🇸', city: 'San Francisco', abbr: 'SF' },
+  Seattle: { country: '🇺🇸', city: 'Seattle', abbr: 'SEA' },
+  Boston: { country: '🇺🇸', city: 'Boston', abbr: 'BOS' },
+  'New York/New Jersey': { country: '🇺🇸', city: 'Nueva York', abbr: 'NY' },
+  Philadelphia: { country: '🇺🇸', city: 'Filadelfia', abbr: 'PHI' },
+  Miami: { country: '🇺🇸', city: 'Miami', abbr: 'MIA' },
+  Atlanta: { country: '🇺🇸', city: 'Atlanta', abbr: 'ATL' },
+  Dallas: { country: '🇺🇸', city: 'Dallas', abbr: 'DAL' },
+  Houston: { country: '🇺🇸', city: 'Houston', abbr: 'HOU' },
+  'Kansas City': { country: '🇺🇸', city: 'Kansas City', abbr: 'KC' },
+};

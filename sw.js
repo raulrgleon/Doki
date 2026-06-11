@@ -1,9 +1,11 @@
-const CACHE = 'wc2026-v3';
+const CACHE = 'wc2026-v4';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './features.js',
+  './venues.js',
   './teams.js',
   './matches-data.js',
   './manifest.json',
@@ -33,5 +35,15 @@ self.addEventListener('fetch', (event) => {
   }
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      if (clients.length) return clients[0].focus();
+      return self.clients.openWindow('/');
+    })
   );
 });

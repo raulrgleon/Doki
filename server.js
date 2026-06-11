@@ -1,15 +1,42 @@
 import 'dotenv/config';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getScoresForMatches } from './lib/espn-scores.js';
 import { generateDokiMessage } from './lib/doki-ai.js';
+import { generateWebcal } from './lib/ics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 8765;
+const startedAt = Date.now();
 
 app.use(express.json({ limit: '32kb' }));
+
+const dokiLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Doki necesita un respiro. Intenta en un minuto.' },
+});
+
+app.get('/api/health', async (_req, res) => {
+  let espn = 'ok';
+  try {
+    await getScoresForMatches({ force: true });
+  } catch {
+    espn = 'error';
+  }
+  res.json({
+    ok: true,
+    uptime: Math.floor((Date.now() - startedAt) / 1000),
+    openai: Boolean(process.env.OPENAI_API_KEY),
+    espn,
+    version: '2.0.0',
+  });
+});
 
 app.get('/api/scores', async (req, res) => {
   try {
@@ -22,11 +49,10 @@ app.get('/api/scores', async (req, res) => {
   }
 });
 
-app.post('/api/doki', async (req, res) => {
+app.post('/api/doki', dokiLimiter, async (req, res) => {
   if (!process.env.OPENAI_API_KEY) {
     return res.status(503).json({ error: 'OpenAI no configurado' });
   }
-
   try {
     const message = await generateDokiMessage(req.body || {});
     res.json(message);
@@ -36,7 +62,23 @@ app.post('/api/doki', async (req, res) => {
   }
 });
 
-app.use(express.static(__dirname));
+app.get('/api/calendar.ics', async (req, res) => {
+  try {
+    const tz = req.query.tz || 'America/Chicago';
+    const teams = req.query.teams || 'all';
+    const knockouts = req.query.knockouts || '0';
+    const ics = await generateWebcal({ tz, teams, knockouts });
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.set('Content-Disposition', 'inline; filename="mundial-2026.ics"');
+    res.send(ics);
+  } catch (err) {
+    console.error('ics error', err.message);
+    res.status(500).send('Error generando calendario');
+  }
+});
+
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d', immutable: true }));
+app.use(express.static(__dirname, { maxAge: '1h', index: false }));
 
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
@@ -46,8 +88,8 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🐾 Doki corriendo en http://localhost:${PORT}`);
+  console.log(`🐾 Doki v2 en http://localhost:${PORT}`);
   if (!process.env.OPENAI_API_KEY) {
-    console.warn('⚠️  OPENAI_API_KEY no definida — Doki usará frases locales');
+    console.warn('⚠️  OPENAI_API_KEY no definida');
   }
 });
