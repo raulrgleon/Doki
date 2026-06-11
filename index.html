@@ -39,11 +39,11 @@
     </section>
 
     <nav class="app-tabs glass" aria-label="Vistas">
-      <button class="app-tab app-tab--active" type="button" data-tab="calendar">Calendario</button>
-      <button class="app-tab" type="button" data-tab="agenda">Agenda</button>
-      <button class="app-tab" type="button" data-tab="standings">Grupos</button>
-      <button class="app-tab" type="button" data-tab="bracket">Eliminatorias</button>
-      <button class="app-tab" type="button" data-tab="venues">Sedes</button>
+      <button class="app-tab app-tab--active" type="button" data-tab="calendar" onclick="window.WCFeatures&&WCFeatures.setActiveTab('calendar')">Calendario</button>
+      <button class="app-tab" type="button" data-tab="agenda" onclick="window.WCFeatures&&WCFeatures.setActiveTab('agenda')">Agenda</button>
+      <button class="app-tab" type="button" data-tab="standings" onclick="window.WCFeatures&&WCFeatures.setActiveTab('standings')">Grupos</button>
+      <button class="app-tab" type="button" data-tab="bracket" onclick="window.WCFeatures&&WCFeatures.setActiveTab('bracket')">Eliminatorias</button>
+      <button class="app-tab" type="button" data-tab="venues" onclick="window.WCFeatures&&WCFeatures.setActiveTab('venues')">Sedes</button>
     </nav>
 
     <section class="next-match glass" id="next-match-banner" aria-live="polite" hidden>
