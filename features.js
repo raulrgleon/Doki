@@ -525,3 +525,4 @@ const WCFeatures = (() => {
     scheduleNotifications,
   };
 })();
+window.WCFeatures = WCFeatures;

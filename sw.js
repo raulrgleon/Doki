@@ -1,4 +1,4 @@
-const CACHE = 'wc2026-v14';
+const CACHE = 'wc2026-v15';
 const SHELL = ['./styles.css', './teams.js', './matches-data.js', './venues.js', './manifest.json', './assets/doki.png'];
 
 const NETWORK_FIRST = new Set(['/', '/index.html', '/app.js', '/features.js', '/sw.js']);
