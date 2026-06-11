@@ -78,6 +78,9 @@ app.get('/api/calendar.ics', async (req, res) => {
 });
 
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d', immutable: true }));
+app.get('/favicon.ico', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'assets', 'doki.png'));
+});
 app.use(express.static(__dirname, { maxAge: '1h', index: false }));
 
 app.get('*', (req, res) => {

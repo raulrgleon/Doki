@@ -307,6 +307,8 @@ const WCFeatures = (() => {
     if (id) window.setTimeout(() => openMatchDeepLink(id), 600);
   }
 
+  let _inited = false;
+
   function setActiveTab(tab) {
     activeTab = tab;
     document.querySelectorAll('.app-tab').forEach((btn) => {
@@ -315,10 +317,18 @@ const WCFeatures = (() => {
     document.querySelectorAll('[data-view]').forEach((view) => {
       view.hidden = view.dataset.view !== tab;
     });
+
+    const isCalendar = tab === 'calendar';
+    const layout = document.querySelector('.layout[data-view="calendar"]');
+    if (layout) layout.hidden = !isCalendar;
+
     if (tab === 'standings') renderStandings();
     if (tab === 'bracket') renderBracket();
     if (tab === 'agenda') renderAgenda();
     if (tab === 'venues') renderVenues();
+
+    const panel = document.querySelector(`[data-view="${tab}"]:not(.layout)`);
+    panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderFavoritesPicker() {
@@ -445,12 +455,11 @@ const WCFeatures = (() => {
   }
 
   function init() {
+    if (_inited) return;
+    _inited = true;
+
     loadFeaturePrefs();
     parseDeepLink();
-
-    document.querySelectorAll('.app-tab').forEach((btn) => {
-      btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
-    });
 
     document.getElementById('theme-toggle')?.addEventListener('click', cycleTheme);
     document.getElementById('notif-btn')?.addEventListener('click', enableNotifications);
@@ -489,6 +498,7 @@ const WCFeatures = (() => {
 
   return {
     init,
+    setActiveTab,
     refreshAll,
     onScoresUpdated,
     getCustomFavorites,

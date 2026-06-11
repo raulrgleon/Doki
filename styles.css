@@ -1585,6 +1585,10 @@ body {
   border-radius: var(--radius-lg);
 }
 
+.view-panel:not([hidden]) {
+  display: block;
+}
+
 .view-panel h2 {
   font-size: 1.125rem;
   margin-bottom: 0.25rem;

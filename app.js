@@ -1305,6 +1305,7 @@ function init() {
   setupShare();
   setupDoki();
   if (window.WCFeatures) WCFeatures.init();
+  window.__wcAppReady = true;
 }
 
 async function bootAsync() {

@@ -9,6 +9,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="format-detection" content="telephone=no">
   <title>Mundial 2026</title>
+  <link rel="icon" href="assets/doki.png" type="image/png">
+  <link rel="shortcut icon" href="assets/doki.png">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
   <link rel="apple-touch-icon" href="assets/doki.png">
@@ -245,9 +247,41 @@
   <script src="features.js"></script>
   <script src="app.js"></script>
   <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
-    }
+    (function () {
+      function switchTab(tab) {
+        if (window.WCFeatures?.setActiveTab) {
+          WCFeatures.setActiveTab(tab);
+        } else {
+          document.querySelectorAll('.app-tab').forEach((btn) => {
+            btn.classList.toggle('app-tab--active', btn.dataset.tab === tab);
+          });
+          document.querySelectorAll('[data-view]').forEach((view) => {
+            view.hidden = view.dataset.view !== tab;
+          });
+          const layout = document.querySelector('.layout[data-view="calendar"]');
+          if (layout) layout.hidden = tab !== 'calendar';
+        }
+        window.WCFeatures?.refreshAll?.();
+      }
+
+      if (window.WCFeatures) WCFeatures.init();
+      document.querySelectorAll('.app-tab').forEach((btn) => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          reg.addEventListener('updatefound', () => {
+            const worker = reg.installing;
+            worker?.addEventListener('statechange', () => {
+              if (worker.state === 'activated' && navigator.serviceWorker.controller) {
+                window.location.reload();
+              }
+            });
+          });
+        }).catch(() => {});
+      }
+    })();
   </script>
 </body>
 </html>

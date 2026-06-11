@@ -1,20 +1,11 @@
-const CACHE = 'wc2026-v4';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './features.js',
-  './venues.js',
-  './teams.js',
-  './matches-data.js',
-  './manifest.json',
-  './assets/doki.png',
-];
+const CACHE = 'wc2026-v8';
+const SHELL = ['./styles.css', './teams.js', './matches-data.js', './venues.js', './manifest.json', './assets/doki.png'];
+
+const NETWORK_FIRST = new Set(['/', '/index.html', '/app.js', '/features.js', '/sw.js']);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
   );
 });
 
@@ -33,6 +24,19 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fetch(event.request));
     return;
   }
+
+  const path = url.pathname.replace(/\/$/, '') || '/';
+  const networkFirst = NETWORK_FIRST.has(path) || path.endsWith('.html');
+
+  if (networkFirst) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => res)
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
