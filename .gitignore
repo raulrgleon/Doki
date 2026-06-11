@@ -2,3 +2,5 @@
 Archive.zip
 *.zip
 .gh-config/
+.env
+node_modules/

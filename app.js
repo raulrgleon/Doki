@@ -65,6 +65,15 @@ let exportSelections = new Set();
 let exportMode = 'all';
 let includeKnockouts = false;
 let MATCHES = [];
+let SCORES_CACHE = {};
+let dokiAiEnabled = true;
+let dokiFetching = false;
+let scoresPollTimer = null;
+let dokiAutoTimer = null;
+let dokiComicTimer = null;
+let lastFinishedCount = 0;
+
+const DOKI_EMOJIS = ['⚽', '🐾', '🦴', '🎾', '👀', '😤', '🏆', '🐶'];
 
 function parseInTimeZone(dateStr, timeStr, timeZone) {
   const [y, mo, d] = dateStr.split('-').map(Number);
@@ -253,6 +262,7 @@ function renderNextMatchBanner() {
 
   if (next.type === 'none') {
     banner.hidden = true;
+    banner.classList.remove('next-match--live');
     return;
   }
 
@@ -263,10 +273,27 @@ function renderNextMatchBanner() {
   if (next.type === 'finished') {
     label.textContent = 'Último partido';
     title.textContent = `${m.homeFlag} ${vs}`;
-    meta.textContent = `${m.dayLabel} · ${m.displayTime} · ${m.venue}`;
-    countdown.textContent = 'El Mundial en tu filtro ya terminó 🏁';
+    const score = getScoreDisplay(m);
+    meta.textContent = score
+      ? `${score.line} · ${m.dayLabel} · ${m.venue}`
+      : `${m.dayLabel} · ${m.displayTime} · ${m.venue}`;
+    countdown.textContent = score ? 'Resultado final 🏁' : 'El Mundial en tu filtro ya terminó 🏁';
     return;
   }
+
+  const liveInFilter = getFilteredMatches().find((x) => x.score?.status === 'live');
+  if (liveInFilter) {
+    const lm = liveInFilter;
+    const ls = getScoreDisplay(lm);
+    label.textContent = 'En vivo ahora';
+    title.textContent = `${lm.homeFlag}${lm.awayFlag} ${lm.homeName}${lm.awayName ? ` vs. ${lm.awayName}` : ''}`;
+    meta.textContent = `${ls.line} · ${ls.minute || 'En juego'} · ${lm.venue}`;
+    countdown.textContent = '🔴 EN VIVO';
+    banner.classList.add('next-match--live');
+    return;
+  }
+
+  banner.classList.remove('next-match--live');
 
   label.textContent = 'Próximo partido';
   title.textContent = `${m.homeFlag}${m.awayFlag ? m.awayFlag : ''} ${vs}`;
@@ -305,15 +332,7 @@ function updateDokiContext(forceKey) {
 }
 
 function matchCardHtml(m) {
-  return `
-    <li class="match-card ${m.cssGroup}">
-      <div class="match-card__top">
-        <span class="match-card__time">${m.displayTime}</span>
-        <span class="match-card__badge">${m.groupLabel}</span>
-      </div>
-      <p class="match-card__teams">${m.homeFlag} ${m.homeName}${m.awayName ? `<span class="match-card__vs">vs</span>${m.awayFlag} ${m.awayName}` : ''}</p>
-      <p class="match-card__meta">${m.venue}</p>
-    </li>`;
+  return renderMatchCard(m);
 }
 
 function groupMatchesByDate(matches) {
@@ -343,7 +362,239 @@ function goToToday() {
 }
 
 function rebuildMatches() {
-  MATCHES = BASE_MATCHES.map((m) => applyTimezone(m, displayTz));
+  MATCHES = BASE_MATCHES.map((m) => ({
+    ...applyTimezone(m, displayTz),
+    score: SCORES_CACHE[m.id] || null,
+  }));
+}
+
+function applyScores(scores, { silent = false } = {}) {
+  const prevFinished = lastFinishedCount;
+  SCORES_CACHE = { ...SCORES_CACHE, ...scores };
+  rebuildMatches();
+
+  const finished = Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length;
+  const hadNewResults = finished > prevFinished;
+  lastFinishedCount = finished;
+
+  renderCalendar();
+  renderMatchList();
+  renderNextMatchBanner();
+
+  if (!silent && hadNewResults) {
+    requestDokiAI('score_update');
+  }
+}
+
+function getScoreDisplay(m) {
+  if (!m.score) return null;
+  const { homeScore, awayScore, status, minute, detail } = m.score;
+  if (status === 'scheduled') return null;
+  return {
+    line: `${homeScore} – ${awayScore}`,
+    status,
+    minute,
+    detail,
+  };
+}
+
+function matchScoreHtml(m) {
+  const score = getScoreDisplay(m);
+  if (!score) return '';
+  const live = score.status === 'live';
+  const label = live ? `EN VIVO${score.minute ? ` · ${score.minute}` : ''}` : 'Final';
+  return `
+    <div class="match-card__score${live ? ' match-card__score--live' : ''}">
+      <span class="match-card__score-label">${label}</span>
+      <span class="match-card__score-line">${score.line}</span>
+    </div>`;
+}
+
+function matchCardClasses(m) {
+  const score = getScoreDisplay(m);
+  let cls = `match-card ${m.cssGroup}`;
+  if (score?.status === 'live') cls += ' match-card--live';
+  if (score?.status === 'finished') cls += ' match-card--finished';
+  return cls;
+}
+
+function renderMatchCard(m) {
+  return `
+    <li class="${matchCardClasses(m)}">
+      <div class="match-card__top">
+        <span class="match-card__time">${m.displayTime}</span>
+        <span class="match-card__badge">${m.groupLabel}</span>
+      </div>
+      ${matchScoreHtml(m)}
+      <p class="match-card__teams">${m.homeFlag} ${m.homeName}${m.awayName ? `<span class="match-card__vs">vs</span>${m.awayFlag} ${m.awayName}` : ''}</p>
+      <p class="match-card__meta">${m.venue}</p>
+    </li>`;
+}
+
+function calendarChipContent(m) {
+  const score = getScoreDisplay(m);
+  if (score) {
+    return `<span>${score.line}</span><span>${score.status === 'live' ? '🔴' : '✓'}</span>`;
+  }
+  const label = m.knockout ? `#${m.id}` : `${m.homeFlag}${m.awayFlag}`;
+  return `<span>${m.displayTime}</span><span>${label}</span>`;
+}
+
+async function fetchScores({ silent = false } = {}) {
+  try {
+    const res = await fetch('/api/scores');
+    if (!res.ok) return false;
+    const { scores } = await res.json();
+    applyScores(scores, { silent });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function startScoresPolling() {
+  if (scoresPollTimer) clearInterval(scoresPollTimer);
+  scoresPollTimer = window.setInterval(() => fetchScores({ silent: true }), 120_000);
+}
+
+function getDokiContextPayload() {
+  const recentResults = getFilteredMatches()
+    .filter((m) => m.score?.status === 'finished' || m.score?.status === 'live')
+    .sort((a, b) => b.instant - a.instant)
+    .slice(0, 5)
+    .map((m) => ({
+      id: m.id,
+      home: m.homeName,
+      away: m.awayName,
+      score: m.score ? `${m.score.homeScore}-${m.score.awayScore}` : null,
+      status: m.score?.status,
+      group: m.groupLabel,
+    }));
+
+  const next = getNextMatch();
+  let nextMatch = null;
+  if (next.type !== 'none') {
+    const m = next.match;
+    nextMatch = {
+      type: next.type,
+      teams: m.awayName ? `${m.homeName} vs ${m.awayName}` : m.homeName,
+      when: `${m.dayLabel} ${m.displayTime}`,
+      venue: m.venue,
+    };
+  }
+
+  return {
+    activeCountry,
+    countryName: activeCountry === 'all' ? 'Todos' : TEAMS[activeCountry]?.name,
+    timezone: getTimezoneLabel(displayTz),
+    recentResults,
+    nextMatch,
+    finishedCount: Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length,
+  };
+}
+
+function triggerDokiAction(action) {
+  const btn = document.getElementById('doki-tap');
+  const hero = document.querySelector('.doki-hero');
+  if (!btn) return;
+
+  btn.classList.remove(
+    'doki-hero__btn--wiggle',
+    'doki-hero__btn--spin',
+    'doki-hero__btn--jump',
+    'doki-hero__btn--bark',
+    'doki-hero__btn--zoom'
+  );
+
+  if (action && action !== 'null') {
+    btn.classList.add(`doki-hero__btn--${action}`);
+    window.setTimeout(() => btn.classList.remove(`doki-hero__btn--${action}`), 700);
+  }
+
+  if (action === 'bark' || action === 'jump') {
+    hero?.classList.add('doki-hero--shake');
+    window.setTimeout(() => hero?.classList.remove('doki-hero--shake'), 500);
+  }
+
+  if (Math.random() > 0.35) spawnDokiEmoji();
+}
+
+function spawnDokiEmoji() {
+  const hero = document.querySelector('.doki-hero');
+  const field = document.getElementById('doki-comics');
+  if (!field) return;
+
+  const emoji = DOKI_EMOJIS[Math.floor(Math.random() * DOKI_EMOJIS.length)];
+  const bubble = document.createElement('span');
+  bubble.className = 'doki-comic';
+  bubble.textContent = emoji;
+  bubble.style.left = `${10 + Math.random() * 70}%`;
+  bubble.style.animationDuration = `${1.8 + Math.random() * 1.2}s`;
+  field.appendChild(bubble);
+  window.setTimeout(() => bubble.remove(), 3200);
+
+  if (hero && Math.random() > 0.6) {
+    hero.classList.add('doki-hero--bounce');
+    window.setTimeout(() => hero.classList.remove('doki-hero--bounce'), 600);
+  }
+}
+
+async function requestDokiAI(trigger = 'auto', { force = false } = {}) {
+  if (!dokiAiEnabled || dokiFetching) return false;
+  if (dokiManualOverride && !force && trigger !== 'tap') return false;
+
+  dokiFetching = true;
+  const badge = document.getElementById('doki-ai-badge');
+  badge?.classList.add('doki-ai-badge--loading');
+
+  try {
+    const res = await fetch('/api/doki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trigger, context: getDokiContextPayload() }),
+    });
+
+    if (!res.ok) throw new Error('api');
+
+    const data = await res.json();
+    if (trigger === 'tap') dokiManualOverride = true;
+    setDokiMessage(data, true);
+    triggerDokiAction(data.action);
+    return true;
+  } catch {
+    if (trigger === 'tap') nextDokiQuoteLocal();
+    return false;
+  } finally {
+    dokiFetching = false;
+    badge?.classList.remove('doki-ai-badge--loading');
+  }
+}
+
+function nextDokiQuoteLocal() {
+  dokiQuoteIndex = (dokiQuoteIndex + 1) % DOKI_QUOTES.length;
+  setDokiMessage(DOKI_QUOTES[dokiQuoteIndex], true);
+  triggerDokiAction('wiggle');
+}
+
+function setupDokiComics() {
+  if (dokiComicTimer) clearInterval(dokiComicTimer);
+  dokiComicTimer = window.setInterval(() => {
+    if (Math.random() > 0.55) spawnDokiEmoji();
+    if (Math.random() > 0.75) {
+      document.getElementById('doki-tap')?.classList.add('doki-hero__btn--wiggle');
+      window.setTimeout(
+        () => document.getElementById('doki-tap')?.classList.remove('doki-hero__btn--wiggle'),
+        450
+      );
+    }
+  }, 18_000);
+}
+
+function startDokiAuto() {
+  if (dokiAutoTimer) clearInterval(dokiAutoTimer);
+  dokiAutoTimer = window.setInterval(() => {
+    if (!dokiManualOverride) requestDokiAI('auto');
+  }, 240_000);
 }
 
 function matchInvolvesCountry(match, countryId) {
@@ -526,10 +777,11 @@ function renderCalendar() {
       events.className = 'calendar__events';
       dayMatches.slice(0, 2).forEach((m) => {
         const chip = document.createElement('div');
-        chip.className = `calendar__event ${m.cssGroup}`;
-        const label = m.knockout ? `#${m.id}` : `${m.homeFlag}${m.awayFlag}`;
-        chip.title = `${m.homeName}${m.awayName ? ' vs. ' + m.awayName : ''} — ${m.displayTime}`;
-        chip.innerHTML = `<span>${m.displayTime}</span><span>${label}</span>`;
+        const score = getScoreDisplay(m);
+        chip.className = `calendar__event ${m.cssGroup}${score?.status === 'live' ? ' calendar__event--live' : ''}${score?.status === 'finished' ? ' calendar__event--finished' : ''}`;
+        const scoreLine = score ? ` · ${score.line}` : '';
+        chip.title = `${m.homeName}${m.awayName ? ' vs. ' + m.awayName : ''}${scoreLine} — ${m.displayTime}`;
+        chip.innerHTML = calendarChipContent(m);
         events.appendChild(chip);
       });
       if (dayMatches.length > 2) {
@@ -577,15 +829,7 @@ function renderMatchList() {
         return `<li class="match-day-header">${item.label}</li>`;
       }
       const m = item.match;
-      return `
-    <li class="match-card ${m.cssGroup}">
-      <div class="match-card__top">
-        <span class="match-card__time">${m.displayTime}</span>
-        <span class="match-card__badge">${m.groupLabel}</span>
-      </div>
-      <p class="match-card__teams">${m.homeFlag} ${m.homeName}${m.awayName ? `<span class="match-card__vs">vs</span>${m.awayFlag} ${m.awayName}` : ''}</p>
-      <p class="match-card__meta">${m.venue}</p>
-    </li>`;
+      return renderMatchCard(m);
     })
     .join('');
 
@@ -890,7 +1134,8 @@ function setActiveCountry(country) {
   renderCalendar();
   renderMatchList();
   renderNextMatchBanner();
-  updateDokiContext();
+  dokiManualOverride = false;
+  requestDokiAI('context', { force: true });
 }
 
 function setupExportModal() {
@@ -953,12 +1198,12 @@ function setupFilters() {
 
 function nextDokiQuote() {
   dokiManualOverride = true;
-  dokiQuoteIndex = (dokiQuoteIndex + 1) % DOKI_QUOTES.length;
-  setDokiMessage(DOKI_QUOTES[dokiQuoteIndex], true);
+  requestDokiAI('tap', { force: true });
 }
 
 function setupDoki() {
   document.getElementById('doki-tap').addEventListener('click', nextDokiQuote);
+  setupDokiComics();
 }
 
 function setupGoToday() {
@@ -1012,9 +1257,7 @@ function init() {
   updateTimezoneUI();
   renderCalendar();
   renderMatchList();
-  renderNextMatchBanner();
-  updateDokiContext();
-  startCountdownTimer();
+  bootAsync();
 
   setupFilters();
   setupMonthNav();
@@ -1022,6 +1265,23 @@ function init() {
   setupExportModal();
   setupShare();
   setupDoki();
+}
+
+async function bootAsync() {
+  renderNextMatchBanner();
+  lastFinishedCount = 0;
+
+  const scoresOk = await fetchScores({ silent: true });
+  if (scoresOk) {
+    lastFinishedCount = Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length;
+    requestDokiAI('auto', { force: true });
+  } else {
+    updateDokiContext();
+  }
+
+  startCountdownTimer();
+  startScoresPolling();
+  startDokiAuto();
 }
 
 init();
