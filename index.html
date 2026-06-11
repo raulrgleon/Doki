@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#f2f2f7">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="format-detection" content="telephone=no">
+  <title>Mundial 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="apple-touch-icon" href="assets/doki.png">
+  <meta name="apple-mobile-web-app-title" content="Mundial 2026">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <p class="header__eyebrow">FIFA World Cup 2026</p>
+      <p class="header__edition">Loma del Gato Edición</p>
+      <h1>Calendario</h1>
+      <p class="header__subtitle" id="header-subtitle">104 partidos · 48 selecciones</p>
+    </header>
+
+    <section class="next-match glass" id="next-match-banner" aria-live="polite" hidden>
+      <div class="next-match__content">
+        <p class="next-match__label" id="next-match-label">Próximo partido</p>
+        <p class="next-match__title" id="next-match-title">—</p>
+        <p class="next-match__meta" id="next-match-meta"></p>
+      </div>
+      <p class="next-match__countdown" id="next-match-countdown"></p>
+    </section>
+
+    <section class="doki-hero glass" aria-label="Doki, mascota oficial">
+      <div class="doki-hero__copy">
+        <p class="doki-hero__badge">🐾 Mascota oficial · modo humor</p>
+        <p class="doki-hero__quote" id="doki-quote">Doki esperando los partidos</p>
+        <p class="doki-hero__hint" id="doki-hint">Tócalo para otra perla canina</p>
+      </div>
+      <button class="doki-hero__btn" id="doki-tap" type="button" aria-label="Doki dice algo nuevo">
+        <img
+          src="assets/doki.png"
+          alt="Doki, jack russell blanco mirando por la ventana del auto"
+          class="doki-hero__img"
+          width="120"
+          height="120"
+        >
+        <span class="doki-hero__pulse" aria-hidden="true"></span>
+      </button>
+    </section>
+
+    <section class="controls glass">
+      <div class="controls__grid">
+        <label class="control">
+          <span class="control__label">Zona horaria</span>
+          <select id="timezone-select" class="control__select"></select>
+        </label>
+        <label class="control">
+          <span class="control__label">País</span>
+          <select id="country-filter" class="control__select">
+            <option value="all">Todos los países</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="segmented" role="tablist" aria-label="Favoritos">
+        <button class="segmented__btn segmented__btn--active" data-team="all" type="button">Todos</button>
+        <button class="segmented__btn" data-team="argentina" type="button">🇦🇷 ARG</button>
+        <button class="segmented__btn" data-team="spain" type="button">🇪🇸 ESP</button>
+        <button class="segmented__btn" data-team="uruguay" type="button">🇺🇾 URU</button>
+      </div>
+
+      <div class="controls__actions">
+        <button class="btn-primary" id="open-export" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M3 10h18M8 2v4M16 2v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          Descargar a tu iPhone
+        </button>
+        <button class="btn-secondary" id="share-app" type="button" hidden>Compartir</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel glass">
+        <div class="panel__header">
+          <button class="icon-btn" id="prev-month" type="button" aria-label="Mes anterior">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <div class="panel__title-wrap">
+            <h2 id="month-label">Junio 2026</h2>
+            <p class="panel__hint" id="calendar-hint">Toca un día para ver detalle</p>
+          </div>
+          <button class="icon-btn icon-btn--text" id="go-today" type="button" title="Ir a hoy">Hoy</button>
+          <button class="icon-btn" id="next-month" type="button" aria-label="Mes siguiente">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="calendar" id="calendar" role="grid"></div>
+      </div>
+
+      <aside class="panel glass panel--sidebar" id="match-panel">
+        <div class="panel__header panel__header--stack">
+          <h2 id="sidebar-title">Partidos</h2>
+          <p id="sidebar-subtitle" class="panel__hint"></p>
+        </div>
+        <ul class="match-list" id="match-list"></ul>
+      </aside>
+    </section>
+
+    <footer class="footer">
+      <p id="footer-timezone"></p>
+      <p class="footer__doki">Supervisado por Doki 🐾 · él no entiende el offside, pero confía en Messi</p>
+    </footer>
+  </div>
+
+  <dialog class="modal" id="export-modal">
+    <div class="modal__sheet">
+      <div class="modal__handle" aria-hidden="true"></div>
+      <header class="modal__header">
+        <button class="modal__close" type="button" id="close-export" aria-label="Cerrar">Cancelar</button>
+        <h2>Calendario iPhone</h2>
+        <button class="modal__done" type="button" id="download-export">Descargar</button>
+      </header>
+
+      <div class="modal__body">
+        <p class="modal__desc">Elige qué partidos incluir. Se generará un archivo <strong>.ics</strong> personalizado para importar en Calendario.</p>
+
+        <div class="export-mode" role="tablist" aria-label="Tipo de calendario">
+          <button class="export-mode__btn export-mode__btn--active" type="button" data-mode="all" id="mode-all">
+            <span class="export-mode__title">Todos los países</span>
+            <span class="export-mode__sub">72 partidos de grupos</span>
+          </button>
+          <button class="export-mode__btn" type="button" data-mode="custom" id="mode-custom">
+            <span class="export-mode__title">Elegir países</span>
+            <span class="export-mode__sub">Solo los que marques</span>
+          </button>
+        </div>
+
+        <div class="export-preview glass-inset" id="export-preview">
+          <p class="export-preview__label">Tu calendario</p>
+          <p class="export-preview__name" id="export-calendar-name">Mundial 2026 — Todos los países</p>
+          <p class="export-preview__count" id="export-count">0 partidos</p>
+        </div>
+
+        <div class="export-custom" id="export-custom-panel" hidden>
+          <div class="modal__actions">
+            <button class="pill" type="button" id="select-all-teams">Marcar todos</button>
+            <button class="pill" type="button" id="clear-teams">Desmarcar</button>
+            <button class="pill pill--accent" type="button" id="select-favorites">🇦🇷 🇪🇸 🇺🇾</button>
+          </div>
+
+          <input type="search" id="export-search" class="search" placeholder="Buscar país">
+
+          <div class="export-teams" id="export-teams"></div>
+        </div>
+
+        <label class="toggle-row">
+          <span>Incluir fases eliminatorias</span>
+          <input type="checkbox" id="include-knockouts" class="toggle">
+        </label>
+
+        <ul class="export-match-preview" id="export-match-preview"></ul>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="teams.js"></script>
+  <script src="matches-data.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>

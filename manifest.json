@@ -1,0 +1,26 @@
+{
+  "name": "Mundial 2026 — Loma del Gato Edición",
+  "short_name": "Mundial 2026",
+  "description": "Calendario del Mundial 2026 con Doki",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f2f2f7",
+  "theme_color": "#007aff",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "assets/doki.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/doki.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
