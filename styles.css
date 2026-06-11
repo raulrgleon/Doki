@@ -1591,6 +1591,8 @@ body {
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-tab--active {

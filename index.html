@@ -12,7 +12,7 @@
   <link rel="icon" href="assets/doki.png" type="image/png">
   <link rel="shortcut icon" href="assets/doki.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
   <link rel="apple-touch-icon" href="assets/doki.png">
   <meta name="apple-mobile-web-app-title" content="Mundial 2026">
 </head>
@@ -39,11 +39,11 @@
     </section>
 
     <nav class="app-tabs glass" aria-label="Vistas">
-      <button class="app-tab app-tab--active" type="button" data-tab="calendar" onclick="window.WCFeatures&&WCFeatures.setActiveTab('calendar')">Calendario</button>
-      <button class="app-tab" type="button" data-tab="agenda" onclick="window.WCFeatures&&WCFeatures.setActiveTab('agenda')">Agenda</button>
-      <button class="app-tab" type="button" data-tab="standings" onclick="window.WCFeatures&&WCFeatures.setActiveTab('standings')">Grupos</button>
-      <button class="app-tab" type="button" data-tab="bracket" onclick="window.WCFeatures&&WCFeatures.setActiveTab('bracket')">Eliminatorias</button>
-      <button class="app-tab" type="button" data-tab="venues" onclick="window.WCFeatures&&WCFeatures.setActiveTab('venues')">Sedes</button>
+      <button class="app-tab app-tab--active" type="button" data-tab="calendar">Calendario</button>
+      <button class="app-tab" type="button" data-tab="agenda">Agenda</button>
+      <button class="app-tab" type="button" data-tab="standings">Grupos</button>
+      <button class="app-tab" type="button" data-tab="bracket">Eliminatorias</button>
+      <button class="app-tab" type="button" data-tab="venues">Sedes</button>
     </nav>
 
     <section class="next-match glass" id="next-match-banner" aria-live="polite" hidden>
@@ -245,33 +245,13 @@
 
   <script src="teams.js"></script>
   <script src="matches-data.js"></script>
-  <script src="venues.js?v=10"></script>
-  <script src="features.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="venues.js?v=11"></script>
+  <script src="features.js?v=11"></script>
+  <script src="app.js?v=11"></script>
   <script>
-    (function () {
-      function switchTab(tab) {
-        if (window.WCFeatures) WCFeatures.setActiveTab(tab);
-      }
-
-      if (window.WCFeatures) WCFeatures.init();
-      document.querySelectorAll('.app-tab').forEach((btn) => {
-        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-      });
-
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
-          reg.addEventListener('updatefound', () => {
-            const worker = reg.installing;
-            worker?.addEventListener('statechange', () => {
-              if (worker.state === 'activated' && navigator.serviceWorker.controller) {
-                window.location.reload();
-              }
-            });
-          });
-        }).catch(() => {});
-      }
-    })();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
   </script>
 </body>
 </html>

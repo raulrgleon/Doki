@@ -1249,6 +1249,44 @@ function setupGoToday() {
   document.getElementById('go-today').addEventListener('click', goToToday);
 }
 
+function setupAppTabs() {
+  document.querySelector('.app-tabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.app-tab');
+    if (!btn?.dataset.tab) return;
+    goTab(btn.dataset.tab);
+  });
+}
+
+function goTab(tab) {
+  document.querySelectorAll('.app-tab').forEach((btn) => {
+    btn.classList.toggle('app-tab--active', btn.dataset.tab === tab);
+  });
+  document.querySelectorAll('.layout__main [data-view]').forEach((view) => {
+    view.hidden = view.dataset.view !== tab;
+  });
+
+  const isCalendar = tab === 'calendar';
+  const sidebar = document.getElementById('match-panel');
+  const layout = document.getElementById('main-layout');
+  if (sidebar) sidebar.hidden = !isCalendar;
+  if (layout) layout.classList.toggle('layout--solo', !isCalendar);
+  document.querySelector('.controls')?.toggleAttribute('hidden', !isCalendar && tab !== 'agenda');
+  document.querySelector('.doki-hero')?.toggleAttribute('hidden', !isCalendar);
+  document.getElementById('today-widget')?.toggleAttribute('hidden', !isCalendar);
+  if (isCalendar) renderNextMatchBanner();
+  else {
+    const banner = document.getElementById('next-match-banner');
+    if (banner) banner.hidden = true;
+  }
+
+  if (window.WCFeatures?.renderForTab) WCFeatures.renderForTab(tab);
+  else if (window.WCFeatures?.refreshAll) WCFeatures.refreshAll();
+
+  layout?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.goTab = goTab;
+
 function setupShare() {
   const btn = document.getElementById('share-app');
   if (navigator.share || navigator.clipboard?.writeText) {
@@ -1304,6 +1342,7 @@ function init() {
   setupExportModal();
   setupShare();
   setupDoki();
+  setupAppTabs();
   if (window.WCFeatures) WCFeatures.init();
   window.__wcAppReady = true;
 }

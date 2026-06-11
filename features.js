@@ -329,12 +329,19 @@ const WCFeatures = (() => {
     layout?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function setActiveTab(tab) {
-    applyViewTab(tab);
+  function renderForTab(tab) {
     if (tab === 'standings') renderStandings();
     if (tab === 'bracket') renderBracket();
     if (tab === 'agenda') renderAgenda();
     if (tab === 'venues') renderVenues();
+  }
+
+  function setActiveTab(tab) {
+    if (window.goTab) window.goTab(tab);
+    else {
+      applyViewTab(tab);
+      renderForTab(tab);
+    }
   }
 
   function renderFavoritesPicker() {
@@ -506,6 +513,7 @@ const WCFeatures = (() => {
     init,
     applyViewTab,
     setActiveTab,
+    renderForTab,
     refreshAll,
     onScoresUpdated,
     getCustomFavorites,
