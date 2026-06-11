@@ -66,6 +66,7 @@ let exportMode = 'all';
 let includeKnockouts = false;
 let MATCHES = [];
 let SCORES_CACHE = {};
+let dokiAiEnabled = true;
 let dokiFetching = false;
 let scoresPollTimer = null;
 let dokiAutoTimer = null;
@@ -381,7 +382,7 @@ function applyScores(scores, { silent = false } = {}) {
   renderNextMatchBanner();
 
   if (!silent && hadNewResults) {
-    requestDokiWisdom('score_update');
+    requestDokiAI('score_update');
   }
 }
 
@@ -441,7 +442,9 @@ function calendarChipContent(m) {
 
 async function fetchScores({ silent = false } = {}) {
   try {
-    const scores = await ESPNScores.fetchScores();
+    const res = await fetch('/api/scores');
+    if (!res.ok) return false;
+    const { scores } = await res.json();
     applyScores(scores, { silent });
     return true;
   } catch {
@@ -536,26 +539,42 @@ function spawnDokiEmoji() {
   }
 }
 
-function requestDokiWisdom(trigger = 'auto', { force = false } = {}) {
-  if (dokiFetching) return false;
+async function requestDokiAI(trigger = 'auto', { force = false } = {}) {
+  if (!dokiAiEnabled || dokiFetching) return false;
   if (dokiManualOverride && !force && trigger !== 'tap') return false;
 
   dokiFetching = true;
   const badge = document.getElementById('doki-ai-badge');
   badge?.classList.add('doki-ai-badge--loading');
 
-  window.setTimeout(() => {
-    const data = DokiBrain.generate(trigger, getDokiContextPayload());
+  try {
+    const res = await fetch('/api/doki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trigger, context: getDokiContextPayload() }),
+    });
+
+    if (!res.ok) throw new Error('api');
+
+    const data = await res.json();
     if (trigger === 'tap') dokiManualOverride = true;
     setDokiMessage(data, true);
     triggerDokiAction(data.action);
+    return true;
+  } catch {
+    if (trigger === 'tap') nextDokiQuoteLocal();
+    return false;
+  } finally {
     dokiFetching = false;
     badge?.classList.remove('doki-ai-badge--loading');
-  }, trigger === 'tap' ? 180 : 80);
-
-  return true;
+  }
 }
 
+function nextDokiQuoteLocal() {
+  dokiQuoteIndex = (dokiQuoteIndex + 1) % DOKI_QUOTES.length;
+  setDokiMessage(DOKI_QUOTES[dokiQuoteIndex], true);
+  triggerDokiAction('wiggle');
+}
 
 function setupDokiComics() {
   if (dokiComicTimer) clearInterval(dokiComicTimer);
@@ -574,7 +593,7 @@ function setupDokiComics() {
 function startDokiAuto() {
   if (dokiAutoTimer) clearInterval(dokiAutoTimer);
   dokiAutoTimer = window.setInterval(() => {
-    if (!dokiManualOverride) requestDokiWisdom('auto');
+    if (!dokiManualOverride) requestDokiAI('auto');
   }, 240_000);
 }
 
@@ -1116,7 +1135,7 @@ function setActiveCountry(country) {
   renderMatchList();
   renderNextMatchBanner();
   dokiManualOverride = false;
-  requestDokiWisdom('context', { force: true });
+  requestDokiAI('context', { force: true });
 }
 
 function setupExportModal() {
@@ -1179,7 +1198,7 @@ function setupFilters() {
 
 function nextDokiQuote() {
   dokiManualOverride = true;
-  requestDokiWisdom('tap', { force: true });
+  requestDokiAI('tap', { force: true });
 }
 
 function setupDoki() {
@@ -1255,7 +1274,7 @@ async function bootAsync() {
   const scoresOk = await fetchScores({ silent: true });
   if (scoresOk) {
     lastFinishedCount = Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length;
-    requestDokiWisdom('auto', { force: true });
+    requestDokiAI('auto', { force: true });
   } else {
     updateDokiContext();
   }

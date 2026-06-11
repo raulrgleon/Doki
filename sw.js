@@ -1,4 +1,4 @@
-const CACHE = 'wc2026-v4';
+const CACHE = 'wc2026-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -6,8 +6,6 @@ const ASSETS = [
   './app.js',
   './teams.js',
   './matches-data.js',
-  './espn-scores.js',
-  './doki-brain.js',
   './manifest.json',
   './assets/doki.png',
 ];
@@ -28,6 +26,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
