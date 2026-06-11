@@ -309,26 +309,32 @@ const WCFeatures = (() => {
 
   let _inited = false;
 
-  function setActiveTab(tab) {
+  function applyViewTab(tab) {
     activeTab = tab;
     document.querySelectorAll('.app-tab').forEach((btn) => {
       btn.classList.toggle('app-tab--active', btn.dataset.tab === tab);
     });
-    document.querySelectorAll('[data-view]').forEach((view) => {
+    document.querySelectorAll('.layout__main [data-view]').forEach((view) => {
       view.hidden = view.dataset.view !== tab;
     });
-
+    const sidebar = document.getElementById('match-panel');
+    const layout = document.getElementById('main-layout');
     const isCalendar = tab === 'calendar';
-    const layout = document.querySelector('.layout[data-view="calendar"]');
-    if (layout) layout.hidden = !isCalendar;
+    if (sidebar) sidebar.hidden = !isCalendar;
+    if (layout) layout.classList.toggle('layout--solo', !isCalendar);
+    document.querySelector('.controls')?.toggleAttribute('hidden', !isCalendar && tab !== 'agenda');
+    document.querySelector('.doki-hero')?.toggleAttribute('hidden', !isCalendar);
+    document.getElementById('next-match-banner')?.toggleAttribute('hidden', !isCalendar);
+    document.getElementById('today-widget')?.toggleAttribute('hidden', !isCalendar);
+    layout?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
+  function setActiveTab(tab) {
+    applyViewTab(tab);
     if (tab === 'standings') renderStandings();
     if (tab === 'bracket') renderBracket();
     if (tab === 'agenda') renderAgenda();
     if (tab === 'venues') renderVenues();
-
-    const panel = document.querySelector(`[data-view="${tab}"]:not(.layout)`);
-    panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderFavoritesPicker() {
@@ -498,6 +504,7 @@ const WCFeatures = (() => {
 
   return {
     init,
+    applyViewTab,
     setActiveTab,
     refreshAll,
     onScoresUpdated,

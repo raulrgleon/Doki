@@ -12,7 +12,7 @@
   <link rel="icon" href="assets/doki.png" type="image/png">
   <link rel="shortcut icon" href="assets/doki.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=10">
   <link rel="apple-touch-icon" href="assets/doki.png">
   <meta name="apple-mobile-web-app-title" content="Mundial 2026">
 </head>
@@ -111,22 +111,48 @@
       </div>
     </section>
 
-    <section class="layout" data-view="calendar">
-      <div class="panel glass">
-        <div class="panel__header">
-          <button class="icon-btn" id="prev-month" type="button" aria-label="Mes anterior">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>
-          <div class="panel__title-wrap">
-            <h2 id="month-label">Junio 2026</h2>
-            <p class="panel__hint" id="calendar-hint">Toca un día para ver detalle</p>
+    <section class="layout" id="main-layout">
+      <div class="layout__main">
+        <div class="panel glass" data-view="calendar">
+          <div class="panel__header">
+            <button class="icon-btn" id="prev-month" type="button" aria-label="Mes anterior">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+            <div class="panel__title-wrap">
+              <h2 id="month-label">Junio 2026</h2>
+              <p class="panel__hint" id="calendar-hint">Toca un día para ver detalle</p>
+            </div>
+            <button class="icon-btn icon-btn--text" id="go-today" type="button" title="Ir a hoy">Hoy</button>
+            <button class="icon-btn" id="next-month" type="button" aria-label="Mes siguiente">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
           </div>
-          <button class="icon-btn icon-btn--text" id="go-today" type="button" title="Ir a hoy">Hoy</button>
-          <button class="icon-btn" id="next-month" type="button" aria-label="Mes siguiente">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          </button>
+          <div class="calendar" id="calendar" role="grid"></div>
         </div>
-        <div class="calendar" id="calendar" role="grid"></div>
+
+        <section class="view-panel glass" data-view="agenda" hidden>
+          <h2>Agenda</h2>
+          <p class="panel__hint">Próximos partidos según tu filtro</p>
+          <ul class="match-list" id="agenda-list"></ul>
+        </section>
+
+        <section class="view-panel glass" data-view="standings" hidden>
+          <h2>Tabla de posiciones</h2>
+          <p class="panel__hint">Grupos A–L · Se actualiza con resultados en vivo</p>
+          <div class="standings-grid" id="standings-grid"></div>
+        </section>
+
+        <section class="view-panel glass" data-view="bracket" hidden>
+          <h2>Eliminatorias</h2>
+          <p class="panel__hint">Toca un partido para ver detalle con Doki</p>
+          <div class="bracket-tree" id="bracket-tree"></div>
+        </section>
+
+        <section class="view-panel glass" data-view="venues" hidden>
+          <h2>Mapa de sedes</h2>
+          <p class="panel__hint">Toca una sede para filtrar el calendario</p>
+          <div class="venues-grid" id="venues-grid"></div>
+        </section>
       </div>
 
       <aside class="panel glass panel--sidebar" id="match-panel">
@@ -136,30 +162,6 @@
         </div>
         <ul class="match-list" id="match-list"></ul>
       </aside>
-    </section>
-
-    <section class="view-panel glass" data-view="agenda" hidden>
-      <h2>Agenda</h2>
-      <p class="panel__hint">Próximos partidos según tu filtro</p>
-      <ul class="match-list" id="agenda-list"></ul>
-    </section>
-
-    <section class="view-panel glass" data-view="standings" hidden>
-      <h2>Tabla de posiciones</h2>
-      <p class="panel__hint">Grupos A–L · Se actualiza con resultados en vivo</p>
-      <div class="standings-grid" id="standings-grid"></div>
-    </section>
-
-    <section class="view-panel glass" data-view="bracket" hidden>
-      <h2>Eliminatorias</h2>
-      <p class="panel__hint">Toca un partido para ver detalle con Doki</p>
-      <div class="bracket-tree" id="bracket-tree"></div>
-    </section>
-
-    <section class="view-panel glass" data-view="venues" hidden>
-      <h2>Mapa de sedes</h2>
-      <p class="panel__hint">Toca una sede para filtrar el calendario</p>
-      <div class="venues-grid" id="venues-grid"></div>
     </section>
 
     <footer class="footer">
@@ -243,25 +245,13 @@
 
   <script src="teams.js"></script>
   <script src="matches-data.js"></script>
-  <script src="venues.js"></script>
-  <script src="features.js"></script>
-  <script src="app.js"></script>
+  <script src="venues.js?v=10"></script>
+  <script src="features.js?v=10"></script>
+  <script src="app.js?v=10"></script>
   <script>
     (function () {
       function switchTab(tab) {
-        if (window.WCFeatures?.setActiveTab) {
-          WCFeatures.setActiveTab(tab);
-        } else {
-          document.querySelectorAll('.app-tab').forEach((btn) => {
-            btn.classList.toggle('app-tab--active', btn.dataset.tab === tab);
-          });
-          document.querySelectorAll('[data-view]').forEach((view) => {
-            view.hidden = view.dataset.view !== tab;
-          });
-          const layout = document.querySelector('.layout[data-view="calendar"]');
-          if (layout) layout.hidden = tab !== 'calendar';
-        }
-        window.WCFeatures?.refreshAll?.();
+        if (window.WCFeatures) WCFeatures.setActiveTab(tab);
       }
 
       if (window.WCFeatures) WCFeatures.init();
