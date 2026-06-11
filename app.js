@@ -1257,6 +1257,16 @@ function setupAppTabs() {
   });
 }
 
+function ensureFeaturePanels(tab) {
+  if (!window.WCFeatures) return;
+  if (tab && tab !== 'calendar') WCFeatures.renderForTab?.(tab);
+  WCFeatures.refreshAll?.();
+}
+
+function bootFeaturePanels() {
+  if (!window.WCFeatures) return;
+  WCFeatures.refreshAll?.();
+}
 function goTab(tab) {
   document.querySelectorAll('.app-tab').forEach((btn) => {
     btn.classList.toggle('app-tab--active', btn.dataset.tab === tab);
@@ -1279,8 +1289,10 @@ function goTab(tab) {
     if (banner) banner.hidden = true;
   }
 
-  if (window.WCFeatures?.renderForTab) WCFeatures.renderForTab(tab);
-  else if (window.WCFeatures?.refreshAll) WCFeatures.refreshAll();
+  if (tab !== 'calendar') {
+    ensureFeaturePanels(tab);
+    setTimeout(() => ensureFeaturePanels(tab), 0);
+  }
 
   layout?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1344,6 +1356,11 @@ function init() {
   setupDoki();
   setupAppTabs();
   if (window.WCFeatures) WCFeatures.init();
+  bootFeaturePanels();
+  queueMicrotask(bootFeaturePanels);
+  requestAnimationFrame(bootFeaturePanels);
+  setTimeout(bootFeaturePanels, 50);
+  window.addEventListener('load', bootFeaturePanels, { once: true });
   window.__wcAppReady = true;
 }
 
@@ -1362,6 +1379,7 @@ async function bootAsync() {
   startCountdownTimer();
   startScoresPolling();
   startDokiAuto();
+  ensureFeaturePanels();
 }
 
 init();

@@ -77,6 +77,12 @@ app.get('/api/calendar.ics', async (req, res) => {
   }
 });
 
+app.use((req, res, next) => {
+  if (/\.(js|html)$/.test(req.path) || req.path === '/sw.js') {
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  }
+  next();
+});
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d', immutable: true }));
 app.get('/favicon.ico', (_req, res) => {
   res.sendFile(path.join(__dirname, 'assets', 'doki.png'));

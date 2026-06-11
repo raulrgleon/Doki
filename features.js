@@ -459,52 +459,50 @@ const WCFeatures = (() => {
   }
 
   function refreshAll() {
-    renderTodayWidget();
-    renderStandings();
-    renderBracket();
-    renderAgenda();
-    renderVenues();
-    updateWebcalLink();
+    try { renderTodayWidget(); } catch (err) { console.error('today widget', err); }
+    try { renderStandings(); } catch (err) { console.error('standings', err); }
+    try { renderBracket(); } catch (err) { console.error('bracket', err); }
+    try { renderAgenda(); } catch (err) { console.error('agenda', err); }
+    try { renderVenues(); } catch (err) { console.error('venues', err); }
+    try { updateWebcalLink(); } catch (err) { console.error('webcal', err); }
   }
 
   function init() {
-    if (_inited) return;
-    _inited = true;
+    const firstRun = !_inited;
+    if (firstRun) {
+      _inited = true;
+      loadFeaturePrefs();
+      parseDeepLink();
 
-    loadFeaturePrefs();
-    parseDeepLink();
+      document.getElementById('theme-toggle')?.addEventListener('click', cycleTheme);
+      document.getElementById('notif-btn')?.addEventListener('click', enableNotifications);
+      document.getElementById('open-favorites')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        renderFavoritesPicker();
+        document.getElementById('favorites-modal').showModal();
+      });
+      document.getElementById('close-favorites')?.addEventListener('click', () => {
+        document.getElementById('favorites-modal').close();
+        if (activeCountry === 'favorites') {
+          renderCalendar();
+          renderMatchList();
+          renderNextMatchBanner();
+          refreshAll();
+        }
+      });
+      document.getElementById('apply-favorites')?.addEventListener('click', () => {
+        setActiveCountry('favorites');
+        document.getElementById('favorites-modal').close();
+      });
 
-    document.getElementById('theme-toggle')?.addEventListener('click', cycleTheme);
-    document.getElementById('notif-btn')?.addEventListener('click', enableNotifications);
-    document.getElementById('open-favorites')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      renderFavoritesPicker();
-      document.getElementById('favorites-modal').showModal();
-    });
-    document.getElementById('close-favorites')?.addEventListener('click', () => {
-      document.getElementById('favorites-modal').close();
-      if (activeCountry === 'favorites') {
-        renderCalendar();
-        renderMatchList();
-        renderNextMatchBanner();
-        refreshAll();
-      }
-    });
-    document.getElementById('apply-favorites')?.addEventListener('click', () => {
-      setActiveCountry('favorites');
-      document.getElementById('favorites-modal').close();
-    });
+      bindMatchListActions(document.getElementById('match-list'));
+      bindMatchListActions(document.getElementById('agenda-list'));
 
-    const favBtn = document.querySelector('[data-team="favorites"]');
-    favBtn?.addEventListener('click', () => setActiveCountry('favorites'));
-
-    bindMatchListActions(document.getElementById('match-list'));
-    bindMatchListActions(document.getElementById('agenda-list'));
-
-    if (localStorage.getItem('wc2026-notif') === 'true') scheduleNotifications();
-    const labels = { auto: 'Auto', light: 'Claro', dark: 'Oscuro' };
-    const tt = document.getElementById('theme-toggle');
-    if (tt) tt.textContent = labels[themeMode];
+      if (localStorage.getItem('wc2026-notif') === 'true') scheduleNotifications();
+      const labels = { auto: 'Auto', light: 'Claro', dark: 'Oscuro' };
+      const tt = document.getElementById('theme-toggle');
+      if (tt) tt.textContent = labels[themeMode];
+    }
 
     refreshAll();
   }

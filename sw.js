@@ -1,4 +1,4 @@
-const CACHE = 'wc2026-v11';
+const CACHE = 'wc2026-v14';
 const SHELL = ['./styles.css', './teams.js', './matches-data.js', './venues.js', './manifest.json', './assets/doki.png'];
 
 const NETWORK_FIRST = new Set(['/', '/index.html', '/app.js', '/features.js', '/sw.js']);
@@ -26,7 +26,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   const path = url.pathname.replace(/\/$/, '') || '/';
-  const networkFirst = NETWORK_FIRST.has(path) || path.endsWith('.html');
+  const networkFirst = NETWORK_FIRST.has(path) || path.endsWith('.html') || path.endsWith('.js');
 
   if (networkFirst) {
     event.respondWith(
