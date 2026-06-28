@@ -174,22 +174,103 @@ const WCFeatures = (() => {
   function renderBracket() {
     const el = document.getElementById('bracket-tree');
     if (!el) return;
-    el.innerHTML = KO_STAGES.map(({ key, label }) => {
+
+    const matchById = new Map(MATCHES.map((m) => [m.id, m]));
+
+    function winnerOf(match) {
+      if (!match?.score || match.score.status !== 'finished') return null;
+      if (match.score.homeScore > match.score.awayScore) return { side: 'home', id: match.home };
+      if (match.score.awayScore > match.score.homeScore) return { side: 'away', id: match.away };
+      return null;
+    }
+
+    function loserOf(match) {
+      const winner = winnerOf(match);
+      if (!winner) return null;
+      return winner.side === 'home' ? { side: 'away', id: match.away } : { side: 'home', id: match.home };
+    }
+
+    function teamParticipant(id, fallback = '') {
+      const team = TEAMS[id];
+      if (!team) return { id: null, flag: '🏆', name: fallback || id || 'Por definir', resolved: false };
+      return { id, flag: team.flag, name: team.name, resolved: true };
+    }
+
+    function resolveSeed(seed) {
+      const clean = String(seed || '').trim();
+      const winnerMatch = clean.match(/^Ganador P(\d+)$/i);
+      if (winnerMatch) {
+        const source = matchById.get(parseInt(winnerMatch[1], 10));
+        const winner = winnerOf(source);
+        return winner ? teamParticipant(winner.id, clean) : { id: null, flag: '🏆', name: clean, resolved: false };
+      }
+      const sfWinner = clean.match(/^Ganador SF(\d+)$/i);
+      if (sfWinner) {
+        const source = matchById.get(sfWinner[1] === '1' ? 101 : 102);
+        const winner = winnerOf(source);
+        return winner ? teamParticipant(winner.id, clean) : { id: null, flag: '🏆', name: clean, resolved: false };
+      }
+      const sfLoser = clean.match(/^Perdedor SF(\d+)$/i);
+      if (sfLoser) {
+        const source = matchById.get(sfLoser[1] === '1' ? 101 : 102);
+        const loser = loserOf(source);
+        return loser ? teamParticipant(loser.id, clean) : { id: null, flag: '🥉', name: clean, resolved: false };
+      }
+      return teamParticipant(clean, clean);
+    }
+
+    function participantsForMatch(m) {
+      if (m.away) return [teamParticipant(m.home, m.homeName), teamParticipant(m.away, m.awayName)];
+      const seeds = String(m.home || '').split(/\s+vs\s+/i).map((part) => part.trim()).filter(Boolean);
+      if (seeds.length >= 2) return [resolveSeed(seeds[0]), resolveSeed(seeds[1])];
+      return [resolveSeed(m.home), { id: null, flag: '🏆', name: 'Por definir', resolved: false }];
+    }
+
+    function scoreForRow(m, index) {
+      if (!m.score || m.score.status === 'scheduled') return '';
+      return index === 0 ? m.score.homeScore : m.score.awayScore;
+    }
+
+    function bracketMatchCard(m, roundLabel) {
+      const score = getScoreDisplay(m);
+      const state = matchState(m);
+      const participants = participantsForMatch(m);
+      const winner = winnerOf(m);
+      const live = score?.status === 'live' ? ' bracket-match--live' : '';
+      const done = score?.status === 'finished' ? ' bracket-match--done' : '';
+      return `
+        <button type="button" class="bracket-match${live}${done}" data-match-id="${m.id}">
+          <span class="bracket-match__label">${roundLabel} · #${m.id}</span>
+          <span class="bracket-match__teams">
+            ${participants.map((p, idx) => `
+              <span class="bracket-team ${winner?.id && p.id === winner.id ? 'bracket-team--winner' : ''} ${!p.resolved ? 'bracket-team--pending' : ''}">
+                <span class="bracket-team__name">${p.flag} ${p.name}</span>
+                <span class="bracket-team__score">${scoreForRow(m, idx)}</span>
+              </span>
+            `).join('')}
+          </span>
+          <span class="bracket-match__meta">${state.label} · ${state.text} · ${m.venue}</span>
+        </button>`;
+    }
+
+    const finalMatch = matchById.get(104);
+    const champion = winnerOf(finalMatch);
+    const trophy = champion
+      ? teamParticipant(champion.id)
+      : { flag: '🏆', name: 'Camino al trofeo', resolved: false };
+
+    el.innerHTML = `
+      <div class="bracket-trophy glass-inset">
+        <span class="bracket-trophy__cup">${trophy.flag}</span>
+        <div>
+          <p class="bracket-trophy__label">${champion ? 'Campeón Mundial 2026' : 'Final · 19 julio'}</p>
+          <h3>${trophy.name}</h3>
+          <p>${champion ? 'Doki entrega el hueso dorado.' : 'Sigue el camino ronda por ronda hasta levantar la copa.'}</p>
+        </div>
+      </div>
+    ` + KO_STAGES.map(({ key, label }) => {
       const matches = MATCHES.filter((m) => m.stage === key).sort((a, b) => a.instant - b.instant);
-      const cards = matches.map((m) => {
-        const score = getScoreDisplay(m);
-        const state = matchState(m);
-        const scoreTxt = score ? score.line : m.displayTime;
-        const live = score?.status === 'live' ? ' bracket-match--live' : '';
-        const done = score?.status === 'finished' ? ' bracket-match--done' : '';
-        return `
-          <button type="button" class="bracket-match${live}${done}" data-match-id="${m.id}">
-            <span class="bracket-match__label">${label} · #${m.id}</span>
-            <span class="bracket-match__teams">${matchTitle(m)}</span>
-            <span class="bracket-match__score">${scoreTxt}</span>
-            <span class="bracket-match__meta">${state.label} · ${state.text} · ${m.venue}</span>
-          </button>`;
-      }).join('');
+      const cards = matches.map((m) => bracketMatchCard(m, label)).join('');
       return `<div class="bracket-col"><h3>${label}</h3>${cards || '<p class="bracket-empty">Próximamente</p>'}</div>`;
     }).join('');
     el.querySelectorAll('[data-match-id]').forEach((btn) => {
