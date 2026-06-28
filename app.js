@@ -699,7 +699,7 @@ function renderMatchCard(m) {
 
 function calendarChipContent(m) {
   const score = getScoreDisplay(m);
-  const flags = m.knockout ? `#${m.id}` : `${m.homeFlag}${m.awayFlag}`;
+  const flags = m.teamIds?.length ? `${m.homeFlag}${m.awayFlag}` : `#${m.id}`;
   if (score) {
     const badge = score.status === 'live' ? '🔴' : '✓';
     return `<span class="calendar__event-flags">${flags}</span><span class="calendar__event-main">${score.line}</span><span class="calendar__event-status">${badge}</span>`;
