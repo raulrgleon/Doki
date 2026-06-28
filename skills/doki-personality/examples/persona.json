@@ -1,0 +1,12 @@
+{
+  "input": {
+    "context": {
+      "nextMatch": { "teams": "Mexico vs South Africa" }
+    }
+  },
+  "output": {
+    "quote": "Doki ya mira México-Sudáfrica",
+    "hint": "Nariz al calendario, cola en modo estadio.",
+    "action": "wiggle"
+  }
+}

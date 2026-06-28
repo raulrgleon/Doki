@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { getScoresForMatches, getScoresMeta, startScoresBackgroundRefresh } from './lib/espn-scores.js';
 import { generateDokiMessage } from './lib/doki-ai.js';
 import { generateWebcal } from './lib/ics.js';
+import { createSkillAdminRouter } from './backend/skills/skillAdminRoutes.js';
+import { getSkillEngine } from './backend/skills/skillRegistry.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -24,18 +26,31 @@ const dokiLimiter = rateLimit({
 
 app.get('/api/health', async (_req, res) => {
   let espn = 'ok';
+  let skills = 'ok';
   try {
     await getScoresForMatches({ force: true });
   } catch {
     espn = 'error';
+  }
+  try {
+    await getSkillEngine().listSkills();
+  } catch {
+    skills = 'error';
   }
   res.json({
     ok: true,
     uptime: Math.floor((Date.now() - startedAt) / 1000),
     openai: Boolean(process.env.OPENAI_API_KEY),
     espn,
+    skills,
     version: '2.0.0',
   });
+});
+
+app.use('/api/admin', createSkillAdminRouter());
+
+app.get('/admin', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'admin', 'index.html'));
 });
 
 app.get('/api/scores', async (req, res) => {
@@ -52,9 +67,6 @@ app.get('/api/scores', async (req, res) => {
 });
 
 app.post('/api/doki', dokiLimiter, async (req, res) => {
-  if (!process.env.OPENAI_API_KEY) {
-    return res.status(503).json({ error: 'OpenAI no configurado' });
-  }
   try {
     const message = await generateDokiMessage(req.body || {});
     res.json(message);

@@ -1,0 +1,15 @@
+{
+  "name": "doki-match-commentary",
+  "version": "1.0.0",
+  "description": "Generates Doki commentary for a single selected match using only supplied match facts.",
+  "category": "ai-commentary",
+  "tags": ["doki", "match", "goals", "world-cup"],
+  "owner": "product-ai",
+  "enabled": true,
+  "cache": false,
+  "fallback": {
+    "quote": "Doki revisa ese partido con lupa",
+    "hint": "Sin inventar goles: patita en modo periodista.",
+    "action": "wiggle"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "input": {
+    "trigger": "context",
+    "context": {
+      "activeCountry": "argentina",
+      "nextMatch": {
+        "teams": "Argentina vs Jordan",
+        "when": "martes 20:00",
+        "venue": "Kansas City"
+      }
+    }
+  },
+  "output": {
+    "quote": "Doki ya olfateó a la Scaloneta",
+    "hint": "Kansas City queda bajo vigilancia de patitas.",
+    "action": "bark"
+  }
+}

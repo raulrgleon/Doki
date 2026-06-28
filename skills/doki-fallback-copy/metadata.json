@@ -1,0 +1,15 @@
+{
+  "name": "doki-fallback-copy",
+  "version": "1.0.0",
+  "description": "Provides deterministic Doki fallback copy when AI execution is unavailable or invalid.",
+  "category": "fallback",
+  "tags": ["doki", "fallback", "resilience"],
+  "owner": "product-ai",
+  "enabled": true,
+  "cache": true,
+  "fallback": {
+    "quote": "Doki sigue de guardia",
+    "hint": "Si la IA duerme, la patita igual cubre el partido.",
+    "action": "wiggle"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "required": ["quote", "hint", "action"],
+  "properties": {
+    "quote": { "type": "string", "maxLength": 120 },
+    "hint": { "type": "string", "maxLength": 160 },
+    "action": { "enum": ["wiggle", "spin", "jump", "bark", "zoom", null] }
+  }
+}

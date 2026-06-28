@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skills Dashboard · Doki</title>
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; background: #0f172a; color: #e5e7eb; }
+    header, main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    header { display: flex; gap: 16px; align-items: center; justify-content: space-between; }
+    input, textarea, button, select { font: inherit; }
+    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #334155; border-radius: 10px; background: #020617; color: #e5e7eb; padding: 10px; }
+    textarea { min-height: 360px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    button { border: 0; border-radius: 999px; padding: 9px 14px; background: #38bdf8; color: #082f49; cursor: pointer; font-weight: 700; }
+    button.secondary { background: #1e293b; color: #e5e7eb; border: 1px solid #334155; }
+    .grid { display: grid; grid-template-columns: 320px 1fr; gap: 18px; }
+    .card { background: rgba(15, 23, 42, .88); border: 1px solid #334155; border-radius: 18px; padding: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.24); }
+    .skill { width: 100%; text-align: left; margin: 6px 0; border-radius: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .muted { color: #94a3b8; }
+    pre { white-space: pre-wrap; background: #020617; border: 1px solid #334155; border-radius: 12px; padding: 12px; max-height: 280px; overflow: auto; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Skills Dashboard</h1>
+      <p class="muted">View, edit, test, import/export, and inspect Skill execution.</p>
+    </div>
+    <a href="/" style="color:#38bdf8">Volver a Doki</a>
+  </header>
+  <main>
+    <section class="card">
+      <label>Admin token</label>
+      <div class="row">
+        <input id="token" type="password" placeholder="ADMIN_TOKEN">
+        <button id="save-token">Guardar</button>
+        <button class="secondary" id="refresh">Refrescar</button>
+      </div>
+      <p class="muted">El token se guarda solo en este navegador.</p>
+    </section>
+
+    <section class="grid" style="margin-top:18px">
+      <aside class="card">
+        <h2>Skills</h2>
+        <div id="skills"></div>
+      </aside>
+      <section class="card">
+        <div class="row">
+          <h2 id="title">Selecciona un Skill</h2>
+          <button id="save" hidden>Guardar SKILL.md</button>
+          <button class="secondary" id="toggle" hidden>Enable/Disable</button>
+          <button class="secondary" id="duplicate" hidden>Duplicar</button>
+          <button class="secondary" id="export" hidden>Exportar</button>
+          <button class="secondary" id="run-test" hidden>Run Test</button>
+        </div>
+        <p id="meta" class="muted"></p>
+        <textarea id="markdown" hidden></textarea>
+        <h3>Output</h3>
+        <pre id="output">Sin datos todavía.</pre>
+      </section>
+    </section>
+
+    <section class="grid" style="margin-top:18px">
+      <section class="card">
+        <h2>Execution Logs</h2>
+        <button class="secondary" id="logs">Cargar logs</button>
+        <pre id="logs-output"></pre>
+      </section>
+      <section class="card">
+        <h2>Usage Analytics</h2>
+        <button class="secondary" id="analytics">Cargar analytics</button>
+        <pre id="analytics-output"></pre>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let activeSkill = null;
+    let activeEnabled = true;
+    $('token').value = localStorage.getItem('doki-admin-token') || '';
+    $('save-token').onclick = () => localStorage.setItem('doki-admin-token', $('token').value);
+
+    async function api(path, options = {}) {
+      const token = $('token').value;
+      const res = await fetch(`/api/admin${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-token': token,
+          ...(options.headers || {}),
+        },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || res.statusText);
+      return json;
+    }
+
+    async function loadSkills() {
+      try {
+        const { skills } = await api('/skills');
+        $('skills').innerHTML = skills.map((skill) => `
+          <button class="skill secondary" data-name="${skill.name}">
+            <strong>${skill.name}</strong><br>
+            <span class="muted">${skill.category || ''} · v${skill.version || '?'}</span>
+          </button>
+        `).join('');
+        document.querySelectorAll('[data-name]').forEach((btn) => {
+          btn.onclick = () => loadSkill(btn.dataset.name);
+        });
+      } catch (err) {
+        $('skills').innerHTML = `<p class="muted">${err.message}</p>`;
+      }
+    }
+
+    async function loadSkill(name) {
+      const data = await api(`/skills/${name}`);
+      activeSkill = name;
+      activeEnabled = data.skill.enabled !== false;
+      $('title').textContent = name;
+      $('meta').textContent = `${data.skill.description || ''} · ${data.validation.ok ? 'valid' : data.validation.errors.join('; ')}`;
+      $('markdown').hidden = false;
+      $('markdown').value = data.markdown;
+      ['save', 'toggle', 'duplicate', 'export', 'run-test'].forEach((id) => $(id).hidden = false);
+      $('output').textContent = JSON.stringify(data, null, 2);
+    }
+
+    $('refresh').onclick = loadSkills;
+    $('save').onclick = async () => {
+      const data = await api(`/skills/${activeSkill}`, {
+        method: 'PUT',
+        body: JSON.stringify({ markdown: $('markdown').value }),
+      });
+      $('output').textContent = JSON.stringify(data, null, 2);
+      loadSkills();
+    };
+    $('toggle').onclick = async () => {
+      const data = await api(`/skills/${activeSkill}/enable`, {
+        method: 'POST',
+        body: JSON.stringify({ enabled: !activeEnabled }),
+      });
+      $('output').textContent = JSON.stringify(data, null, 2);
+      loadSkill(activeSkill);
+    };
+    $('duplicate').onclick = async () => {
+      const target = prompt('Nuevo nombre del Skill');
+      if (!target) return;
+      const data = await api(`/skills/${activeSkill}/duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({ target }),
+      });
+      $('output').textContent = JSON.stringify(data, null, 2);
+      loadSkills();
+    };
+    $('export').onclick = async () => {
+      const data = await api(`/skills/${activeSkill}/export`);
+      $('output').textContent = JSON.stringify(data, null, 2);
+    };
+    $('run-test').onclick = async () => {
+      const data = await api(`/skills/${activeSkill}/test`, {
+        method: 'POST',
+        body: JSON.stringify({ input: { trigger: 'auto', context: {} } }),
+      });
+      $('output').textContent = JSON.stringify(data, null, 2);
+    };
+    $('logs').onclick = async () => $('logs-output').textContent = JSON.stringify(await api('/logs'), null, 2);
+    $('analytics').onclick = async () => $('analytics-output').textContent = JSON.stringify(await api('/analytics'), null, 2);
+
+    loadSkills();
+  </script>
+</body>
+</html>

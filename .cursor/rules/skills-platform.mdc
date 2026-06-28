@@ -1,0 +1,15 @@
+---
+description: Keep Doki development Skills-driven.
+globs:
+  - "**/*"
+---
+
+# Skills Platform Rule
+
+This repository is a Skills-driven AI platform.
+
+- Do not hide AI prompts, personas, or business AI behavior in source code.
+- Add or update reusable Skills under `skills/` for new AI capabilities.
+- Source code may route, validate, log, cache, and call providers.
+- Every AI output must be schema validated and have fallback behavior.
+- Prefer reusing or composing existing Skills before creating new ones.

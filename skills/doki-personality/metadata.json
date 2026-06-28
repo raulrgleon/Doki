@@ -1,0 +1,15 @@
+{
+  "name": "doki-personality",
+  "version": "1.0.0",
+  "description": "Defines the reusable Doki mascot voice and response contract for composed Skills.",
+  "category": "persona",
+  "tags": ["doki", "persona", "voice"],
+  "owner": "product-ai",
+  "enabled": true,
+  "cache": true,
+  "fallback": {
+    "quote": "Doki activa modo Mundial",
+    "hint": "Patitas listas, VAR bajo sospecha.",
+    "action": "wiggle"
+  }
+}

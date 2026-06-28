@@ -1,0 +1,22 @@
+{
+  "input": {
+    "trigger": "match_tap",
+    "context": {
+      "tappedMatch": {
+        "home": "Portugal",
+        "away": "RD Congo",
+        "score": "1-1",
+        "status": "finished",
+        "goals": [
+          { "player": "Joao Neves", "minute": "6'", "team": "Portugal" },
+          { "player": "Yoane Wissa", "minute": "45'+5'", "team": "RD Congo" }
+        ]
+      }
+    }
+  },
+  "output": {
+    "quote": "Doki vio empate con olor a VAR",
+    "hint": "Joao Neves al 6', Wissa al 45'+5'. Todo anotado con patita.",
+    "action": "spin"
+  }
+}

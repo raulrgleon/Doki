@@ -1,0 +1,11 @@
+{
+  "input": {
+    "trigger": "auto",
+    "context": {}
+  },
+  "output": {
+    "quote": "Doki sigue de guardia",
+    "hint": "Nariz al calendario, cero humo.",
+    "action": "wiggle"
+  }
+}

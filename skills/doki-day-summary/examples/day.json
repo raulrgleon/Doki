@@ -1,0 +1,20 @@
+{
+  "input": {
+    "trigger": "day_select",
+    "context": {
+      "selectedDay": {
+        "date": "Junio 28, 2026",
+        "matchCount": 3,
+        "matches": [
+          { "home": "Colombia", "away": "RD Congo", "score": "1-0" },
+          { "home": "Ghana", "away": "Panama", "time": "20:00" }
+        ]
+      }
+    }
+  },
+  "output": {
+    "quote": "Doki encontró un día con colmillo",
+    "hint": "Colombia ya dejó huella y Ghana-Panamá queda bajo vigilancia.",
+    "action": "jump"
+  }
+}

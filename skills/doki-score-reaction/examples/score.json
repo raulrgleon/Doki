@@ -1,0 +1,16 @@
+{
+  "input": {
+    "trigger": "score_update",
+    "context": {
+      "recentResults": [
+        { "home": "Mexico", "away": "South Africa", "score": "2-0", "status": "finished" }
+      ],
+      "finishedCount": 1
+    }
+  },
+  "output": {
+    "quote": "Doki ladró el 2-0 de México",
+    "hint": "Marcador confirmado, croqueta aprobada.",
+    "action": "bark"
+  }
+}

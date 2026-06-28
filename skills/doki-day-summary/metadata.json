@@ -1,0 +1,15 @@
+{
+  "name": "doki-day-summary",
+  "version": "1.0.0",
+  "description": "Summarizes a selected World Cup calendar day in Doki's voice.",
+  "category": "ai-commentary",
+  "tags": ["doki", "calendar", "day-summary"],
+  "owner": "product-ai",
+  "enabled": true,
+  "cache": false,
+  "fallback": {
+    "quote": "Doki revisó ese día del calendario",
+    "hint": "La patita marca partidos, no excusas.",
+    "action": "wiggle"
+  }
+}
