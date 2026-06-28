@@ -562,6 +562,7 @@ function notifyDokiMatchSelected(id) {
   if (!m) return;
   setSidebarDokiMessage(buildMatchDokiMessage(m), { animate: true });
   requestDokiAI('match_tap', { force: true, matchId: id });
+  window.WCFeatures?.openMatchCenter?.(id);
 }
 
 function notifyDokiDaySelected() {

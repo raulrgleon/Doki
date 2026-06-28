@@ -12,7 +12,7 @@
   <link rel="icon" href="assets/doki.png" type="image/png">
   <link rel="shortcut icon" href="assets/doki.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=25">
+  <link rel="stylesheet" href="styles.css?v=26">
   <link rel="apple-touch-icon" href="assets/doki.png">
   <meta name="apple-mobile-web-app-title" content="Mundial 2026">
 </head>
@@ -34,7 +34,14 @@
     </header>
 
     <section class="today-widget glass" id="today-widget" hidden>
-      <h2 class="today-widget__title">Partidos de hoy</h2>
+      <div class="today-widget__header">
+        <div>
+          <p class="today-widget__eyebrow">Día a día</p>
+          <h2 class="today-widget__title">Partidos de hoy</h2>
+        </div>
+        <button class="pill pill--sm" id="today-follow-favorites" type="button">⭐ Mis favoritos</button>
+      </div>
+      <div class="daily-dashboard" id="daily-dashboard"></div>
       <ul class="today-widget__list" id="today-matches"></ul>
     </section>
 
@@ -256,13 +263,27 @@
     </div>
   </dialog>
 
+  <dialog class="modal match-center-modal" id="match-center-modal">
+    <div class="modal__sheet match-center">
+      <div class="modal__handle" aria-hidden="true"></div>
+      <header class="modal__header">
+        <button class="modal__close" type="button" id="close-match-center" aria-label="Cerrar">Cerrar</button>
+        <h2>Match Center</h2>
+        <button class="modal__done" type="button" id="match-center-share">Compartir</button>
+      </header>
+      <div class="modal__body">
+        <div id="match-center-content"></div>
+      </div>
+    </div>
+  </dialog>
+
   <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
 
-  <script src="teams.js?v=25"></script>
-  <script src="matches-data.js?v=25"></script>
-  <script src="venues.js?v=25"></script>
-  <script src="features.js?v=25"></script>
-  <script src="app.js?v=25"></script>
+  <script src="teams.js?v=26"></script>
+  <script src="matches-data.js?v=26"></script>
+  <script src="venues.js?v=26"></script>
+  <script src="features.js?v=26"></script>
+  <script src="app.js?v=26"></script>
   <script>
     (function paintPanelsNow() {
       function paintPanels() {
@@ -279,7 +300,7 @@
       window.addEventListener('load', paintPanels);
     })();
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js?v=25').catch(() => {});
+      navigator.serviceWorker.register('./sw.js?v=26').catch(() => {});
     }
   </script>
 </body>
