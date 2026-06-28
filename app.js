@@ -56,11 +56,34 @@ let dokiQuoteIndex = 0;
 let dokiManualOverride = false;
 let countdownTimer = null;
 
-let displayTz = localStorage.getItem('wc2026-tz') || 'America/Chicago';
+function getVisitorTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+function initDisplayTimezone() {
+  const manual = localStorage.getItem('wc2026-tz-manual') === '1';
+  const saved = localStorage.getItem('wc2026-tz');
+  if (manual && saved) {
+    displayTz = saved;
+    return;
+  }
+  displayTz = getVisitorTimezone();
+}
+
+let displayTz = getVisitorTimezone();
 let currentYear = 2026;
 let currentMonth = 5;
 let activeCountry = 'all';
 let selectedDay = null;
+let selectedMatchId = null;
+const TOURNAMENT_MONTHS = [
+  { year: 2026, month: 5 },
+  { year: 2026, month: 6 },
+];
 let exportSelections = new Set();
 let exportMode = 'all';
 let includeKnockouts = false;
@@ -69,6 +92,8 @@ let SCORES_CACHE = {};
 let dokiAiEnabled = true;
 let dokiFetching = false;
 let scoresPollTimer = null;
+let scoresUpdatedAt = null;
+let scoresFetchFailures = 0;
 let dokiAutoTimer = null;
 let dokiComicTimer = null;
 let lastFinishedCount = 0;
@@ -120,11 +145,25 @@ function getZonedDateParts(date, timeZone) {
 }
 
 function getTimezoneLabel(tzId) {
-  return TIMEZONES.find((t) => t.id === tzId)?.label || tzId;
+  const preset = TIMEZONES.find((t) => t.id === tzId);
+  if (preset) return preset.label;
+  return tzId.split('/').pop()?.replace(/_/g, ' ') || tzId;
 }
 
 function getTimezoneAbbr(tzId) {
-  return TIMEZONES.find((t) => t.id === tzId)?.abbr || '';
+  const preset = TIMEZONES.find((t) => t.id === tzId);
+  if (preset) return preset.abbr;
+  try {
+    const part = new Intl.DateTimeFormat('es', {
+      timeZone: tzId,
+      timeZoneName: 'short',
+    })
+      .formatToParts(new Date())
+      .find((p) => p.type === 'timeZoneName');
+    return part?.value || getTimezoneLabel(tzId);
+  } catch {
+    return getTimezoneLabel(tzId);
+  }
 }
 
 function teamName(id) {
@@ -222,6 +261,33 @@ function isToday(day, month, year) {
   return t.day === day && t.month === month && t.year === year;
 }
 
+function isDayInPast(day, month, year) {
+  const t = getTodayInDisplayTz();
+  if (year !== t.year) return year < t.year;
+  if (month !== t.month) return month < t.month;
+  return day < t.day;
+}
+
+function tournamentMonthIndex(year, month) {
+  return TOURNAMENT_MONTHS.findIndex((m) => m.year === year && m.month === month);
+}
+
+function syncCalendarMonthToToday() {
+  const t = getTodayInDisplayTz();
+  if (tournamentMonthIndex(t.year, t.month) >= 0) {
+    currentYear = t.year;
+    currentMonth = t.month;
+  }
+}
+
+function updateMonthNavButtons() {
+  const prev = document.getElementById('prev-month');
+  const next = document.getElementById('next-month');
+  const idx = tournamentMonthIndex(currentYear, currentMonth);
+  if (prev) prev.disabled = idx <= 0;
+  if (next) next.disabled = idx < 0 || idx >= TOURNAMENT_MONTHS.length - 1;
+}
+
 function getNextMatch() {
   const now = Date.now();
   const upcoming = getFilteredMatches()
@@ -305,8 +371,9 @@ function setDokiMessage({ quote, hint }, animate = true) {
   const quoteEl = document.getElementById('doki-quote');
   const hintEl = document.getElementById('doki-hint');
   const btn = document.getElementById('doki-tap');
+  if (!quoteEl || !hintEl) return;
 
-  if (animate) {
+  if (animate && btn) {
     quoteEl.classList.add('doki-hero__quote--pop');
     btn.classList.add('doki-hero__btn--wiggle');
     window.setTimeout(() => {
@@ -319,6 +386,27 @@ function setDokiMessage({ quote, hint }, animate = true) {
   hintEl.textContent = hint;
 }
 
+function setSidebarDokiMessage({ quote, hint }, { animate = true, loading = false } = {}) {
+  const box = document.getElementById('sidebar-doki');
+  const quoteEl = document.getElementById('sidebar-doki-quote');
+  const hintEl = document.getElementById('sidebar-doki-hint');
+  if (!box || !quoteEl || !hintEl) return;
+
+  box.hidden = false;
+  box.classList.toggle('sidebar-doki--loading', loading);
+  if (animate) {
+    box.classList.add('sidebar-doki--pop');
+    window.setTimeout(() => box.classList.remove('sidebar-doki--pop'), 400);
+  }
+  quoteEl.textContent = quote;
+  hintEl.textContent = hint;
+}
+
+function hideSidebarDoki() {
+  const box = document.getElementById('sidebar-doki');
+  if (box) box.hidden = true;
+}
+
 function updateDokiContext(forceKey) {
   if (dokiManualOverride && !forceKey) return;
 
@@ -329,6 +417,159 @@ function updateDokiContext(forceKey) {
   }
   const ctx = DOKI_CONTEXT[key] || DOKI_CONTEXT.all;
   setDokiMessage(ctx, Boolean(forceKey));
+}
+
+function buildDayDokiMessage(day) {
+  const matches = getAllMatchesForDay(day);
+  const dateLabel = `${MONTH_NAMES[currentMonth]} ${day}`;
+
+  if (!matches.length) {
+    return {
+      quote: `Doki no encuentra partidos el ${dateLabel}`,
+      hint: 'Prueba otro día del calendario.',
+    };
+  }
+
+  const withScore = matches.filter((m) => getScoreDisplay(m));
+  const past = isDayInPast(day, currentMonth, currentYear);
+
+  if (withScore.length) {
+    const summary = withScore
+      .slice(0, 2)
+      .map((m) => {
+        const s = getScoreDisplay(m);
+        return `${m.homeFlag} ${m.homeName} ${s.line} ${m.awayFlag} ${m.awayName || ''}`.trim();
+      })
+      .join(' · ');
+    const extra = matches.length > withScore.length ? ` · y ${matches.length - withScore.length} más` : '';
+    const quotes = past
+      ? ['Doki no necesita VAR para este día', 'Olfato periodístico: día cargado de goles', 'La cola confirma: hubo fútbol de verdad']
+      : ['Doki ya vio los marcadores', 'Resultados en la ventana del auto 📻'];
+    return {
+      quote: quotes[day % quotes.length] + ' 🐾',
+      hint: (summary + extra).slice(0, 120),
+    };
+  }
+
+  const upcoming = matches
+    .slice(0, 2)
+    .map((m) => `${m.displayTime} ${m.homeFlag}${m.awayFlag} ${m.homeName} vs ${m.awayName || '?'}`)
+    .join(' · ');
+  const futureQuotes = [
+    `Patitas cruzadas: ${matches.length} partido${matches.length === 1 ? '' : 's'} el ${dateLabel}`,
+    `Doki ya reservó lugar en el sofá — ${matches.length} cruces`,
+    `Silbato en camino: ${matches.length} partido${matches.length === 1 ? '' : 's'} ese día`,
+  ];
+  return {
+    quote: futureQuotes[day % futureQuotes.length],
+    hint: upcoming.slice(0, 120),
+  };
+}
+
+function formatMatchGoalsSummary(m) {
+  const goals = m.score?.goals || [];
+  if (!goals.length) return '';
+  return goals.map((g) => {
+    const team = g.side === 'home' ? m.homeFlag : g.side === 'away' ? m.awayFlag : '⚽';
+    return `${team} ${formatGoalLine(g)}`;
+  }).join(' · ');
+}
+
+function formatGoalLine(g) {
+  let line = g.player;
+  if (g.minute) line += ` ${g.minute}`;
+  if (g.penalty) line += ' (pen.)';
+  if (g.ownGoal) line += ' (e.c.)';
+  return line;
+}
+
+function getMatchDokiContext(m) {
+  if (!m) return null;
+  return {
+    id: m.id,
+    home: m.homeName,
+    away: m.awayName,
+    homeFlag: m.homeFlag,
+    awayFlag: m.awayFlag,
+    venue: m.venue,
+    group: m.groupLabel,
+    when: `${m.dayLabel} ${m.displayTime}`,
+    status: m.score?.status || 'scheduled',
+    score:
+      m.score && m.score.status !== 'scheduled'
+        ? `${m.score.homeScore}-${m.score.awayScore}`
+        : null,
+    goals: (m.score?.goals || []).map((g) => ({
+      player: g.player,
+      minute: g.minute,
+      team: g.side === 'home' ? m.homeName : g.side === 'away' ? m.awayName : null,
+      ownGoal: g.ownGoal,
+      penalty: g.penalty,
+    })),
+  };
+}
+
+function buildMatchDokiMessage(m) {
+  const vs = m.awayName ? `${m.homeFlag} ${m.homeName} vs ${m.awayFlag} ${m.awayName}` : `${m.homeFlag} ${m.homeName}`;
+  const score = getScoreDisplay(m);
+  const goals = m.score?.goals || [];
+
+  if (score?.status === 'finished' && goals.length) {
+    const homeGoals = goals.filter((g) => g.side === 'home');
+    const awayGoals = goals.filter((g) => g.side === 'away');
+    const parts = [];
+    if (homeGoals.length) parts.push(`${m.homeName}: ${homeGoals.map(formatGoalLine).join(', ')}`);
+    if (awayGoals.length) parts.push(`${m.awayName}: ${awayGoals.map(formatGoalLine).join(', ')}`);
+    const star = goals[0];
+    const opener = star?.minute
+      ? `${star.player} abrió en el ${star.minute}`
+      : `${star?.player || 'Gol'} definió el partido`;
+    return {
+      quote: `Final ${score.line} — ${opener} 🐾`,
+      hint: parts.join(' · ').slice(0, 140),
+    };
+  }
+
+  if (score?.status === 'finished') {
+    return {
+      quote: `Cerró ${score.line}. Doki confirma el resultado`,
+      hint: `${vs} · Marcador oficial — detalle de goles en actualización`,
+    };
+  }
+
+  if (score?.status === 'live') {
+    const lastGoal = goals[goals.length - 1];
+    const liveHint = lastGoal
+      ? `Último gol: ${formatGoalLine(lastGoal)}`
+      : `${vs} · ${m.venue}`;
+    return {
+      quote: `¡EN VIVO ${score.line}! Doki no parpadea 🔴`,
+      hint: liveHint.slice(0, 140),
+    };
+  }
+
+  return {
+    quote: `Doki ya reservó sitio: ${m.homeName} vs ${m.awayName || '?'}`,
+    hint: `${m.displayTime} · ${m.groupLabel} · ${m.venue}`,
+  };
+}
+
+function notifyDokiMatchSelected(id) {
+  selectedMatchId = id;
+  const m = MATCHES.find((x) => x.id === id);
+  if (!m) return;
+  setSidebarDokiMessage(buildMatchDokiMessage(m), { animate: true });
+  requestDokiAI('match_tap', { force: true, matchId: id });
+}
+
+function notifyDokiDaySelected() {
+  selectedMatchId = null;
+  if (selectedDay === null) {
+    hideSidebarDoki();
+    return;
+  }
+  setSidebarDokiMessage(buildDayDokiMessage(selectedDay), { animate: true });
+  requestDokiAI('day_select', { force: true });
 }
 
 function matchCardHtml(m) {
@@ -358,7 +599,7 @@ function goToToday() {
   renderCalendar();
   renderMatchList();
   scrollToMatches();
-  updateDokiContext('next');
+  notifyDokiDaySelected();
 }
 
 function rebuildMatches() {
@@ -384,9 +625,20 @@ function applyScores(scores, { silent = false } = {}) {
   renderMatchList();
   renderNextMatchBanner();
   if (window.WCFeatures) WCFeatures.refreshAll();
+  scheduleScoresPoll();
 
   if (!silent && hadNewResults) {
     requestDokiAI('score_update');
+    if (selectedMatchId !== null) {
+      const m = MATCHES.find((x) => x.id === selectedMatchId);
+      if (m) {
+        setSidebarDokiMessage(buildMatchDokiMessage(m), { animate: false });
+        requestDokiAI('match_tap', { force: true, matchId: selectedMatchId });
+      }
+    } else if (selectedDay !== null) {
+      setSidebarDokiMessage(buildDayDokiMessage(selectedDay), { animate: false });
+      requestDokiAI('day_select', { force: true });
+    }
   }
 }
 
@@ -419,6 +671,13 @@ function matchCardClasses(m) {
   let cls = `match-card ${m.cssGroup}`;
   if (score?.status === 'live') cls += ' match-card--live';
   if (score?.status === 'finished') cls += ' match-card--finished';
+  if (
+    selectedDay !== null &&
+    activeCountry !== 'all' &&
+    !matchInvolvesCountry(m, activeCountry)
+  ) {
+    cls += ' match-card--dim';
+  }
   return cls;
 }
 
@@ -437,28 +696,80 @@ function renderMatchCard(m) {
 
 function calendarChipContent(m) {
   const score = getScoreDisplay(m);
+  const flags = m.knockout ? `#${m.id}` : `${m.homeFlag}${m.awayFlag}`;
   if (score) {
-    return `<span>${score.line}</span><span>${score.status === 'live' ? '🔴' : '✓'}</span>`;
+    const badge = score.status === 'live' ? '🔴' : '✓';
+    return `<span class="calendar__event-flags">${flags}</span><span class="calendar__event-main">${score.line}</span><span class="calendar__event-status">${badge}</span>`;
   }
-  const label = m.knockout ? `#${m.id}` : `${m.homeFlag}${m.awayFlag}`;
-  return `<span>${m.displayTime}</span><span>${label}</span>`;
+  return `<span class="calendar__event-flags">${flags}</span><span class="calendar__event-main">${m.displayTime}</span>`;
 }
 
-async function fetchScores({ silent = false } = {}) {
+async function fetchScores({ silent = false, force = false } = {}) {
   try {
-    const res = await fetch('/api/scores');
-    if (!res.ok) return false;
-    const { scores } = await res.json();
-    applyScores(scores, { silent });
+    const url = force ? '/api/scores?refresh=1' : '/api/scores';
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(String(res.status));
+    const json = await res.json();
+    scoresUpdatedAt = json.updatedAt || new Date().toISOString();
+    scoresFetchFailures = 0;
+    applyScores(json.scores, { silent });
+    updateScoresStatusUI();
     return true;
   } catch {
+    scoresFetchFailures += 1;
+    updateScoresStatusUI();
+    if (!silent && scoresFetchFailures >= 3) {
+      console.warn('fetchScores: demasiados fallos consecutivos');
+    }
     return false;
   }
 }
 
-function startScoresPolling() {
+function hasLiveMatch() {
+  return MATCHES.some((m) => m.score?.status === 'live');
+}
+
+function getScoresPollIntervalMs() {
+  if (hasLiveMatch()) return 15_000;
+  return 60_000;
+}
+
+function scheduleScoresPoll() {
   if (scoresPollTimer) clearInterval(scoresPollTimer);
-  scoresPollTimer = window.setInterval(() => fetchScores({ silent: true }), 120_000);
+  scoresPollTimer = window.setInterval(() => {
+    fetchScores({ silent: true, force: true });
+  }, getScoresPollIntervalMs());
+}
+
+function updateScoresStatusUI() {
+  const el = document.getElementById('scores-status');
+  if (!el) return;
+  if (!scoresUpdatedAt) {
+    el.textContent = '';
+    return;
+  }
+  const when = new Date(scoresUpdatedAt);
+  const label = when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const finished = Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length;
+  if (scoresFetchFailures >= 2) {
+    el.textContent = `Resultados desactualizados · reintentando…`;
+    el.classList.add('scores-status--warn');
+    return;
+  }
+  el.classList.remove('scores-status--warn');
+  el.textContent = `${finished} resultados · actualizado ${label}`;
+}
+
+function setupScoresRefresh() {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      fetchScores({ silent: true, force: true }).then(() => scheduleScoresPoll());
+    }
+  });
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) fetchScores({ silent: true, force: true });
+  });
+  window.addEventListener('online', () => fetchScores({ silent: false, force: true }));
 }
 
 function getDokiContextPayload() {
@@ -487,12 +798,35 @@ function getDokiContextPayload() {
     };
   }
 
+  let selectedDayInfo = null;
+  if (selectedDay !== null) {
+    const matches = getAllMatchesForDay(selectedDay);
+    selectedDayInfo = {
+      date: `${MONTH_NAMES[currentMonth]} ${selectedDay}, ${currentYear}`,
+      isPast: isDayInPast(selectedDay, currentMonth, currentYear),
+      matchCount: matches.length,
+      matches: matches.map((m) => ({
+        home: m.homeName,
+        away: m.awayName,
+        time: m.displayTime,
+        venue: m.venue,
+        group: m.groupLabel,
+        score:
+          m.score && m.score.status !== 'scheduled'
+            ? `${m.score.homeScore}-${m.score.awayScore}`
+            : null,
+        status: m.score?.status || 'scheduled',
+      })),
+    };
+  }
+
   return {
     activeCountry,
     countryName: activeCountry === 'all' ? 'Todos' : TEAMS[activeCountry]?.name,
     timezone: getTimezoneLabel(displayTz),
     recentResults,
     nextMatch,
+    selectedDay: selectedDayInfo,
     finishedCount: Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length,
   };
 }
@@ -543,7 +877,7 @@ function spawnDokiEmoji() {
   }
 }
 
-async function requestDokiAI(trigger = 'auto', { force = false } = {}) {
+async function requestDokiAI(trigger = 'auto', { force = false, matchId = null } = {}) {
   if (!dokiAiEnabled || dokiFetching) return false;
   if (dokiManualOverride && !force && trigger !== 'tap') return false;
 
@@ -551,22 +885,56 @@ async function requestDokiAI(trigger = 'auto', { force = false } = {}) {
   const badge = document.getElementById('doki-ai-badge');
   badge?.classList.add('doki-ai-badge--loading');
 
+  const sidebarTrigger = trigger === 'day_select' || trigger === 'match_tap';
+  if (sidebarTrigger) {
+    const loadingQuote =
+      trigger === 'match_tap' ? 'Doki analiza el partido…' : 'Doki husmea el día…';
+    const loadingHint =
+      trigger === 'match_tap'
+        ? 'Revisando goles, minutos y datos reales 🐾'
+        : 'Olfateando marcadores y horarios 🐾';
+    if (trigger === 'day_select' && selectedDay !== null) {
+      setSidebarDokiMessage({ quote: loadingQuote, hint: loadingHint }, { animate: false, loading: true });
+    }
+    if (trigger === 'match_tap' && matchId) {
+      setSidebarDokiMessage({ quote: loadingQuote, hint: loadingHint }, { animate: false, loading: true });
+    }
+  }
+
   try {
+    const context = getDokiContextPayload();
+    if (matchId) {
+      const m = MATCHES.find((x) => x.id === matchId);
+      if (m) context.tappedMatch = getMatchDokiContext(m);
+    }
+
     const res = await fetch('/api/doki', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trigger, context: getDokiContextPayload() }),
+      body: JSON.stringify({ trigger, context }),
     });
 
     if (!res.ok) throw new Error('api');
 
     const data = await res.json();
     if (trigger === 'tap') dokiManualOverride = true;
-    setDokiMessage(data, true);
-    triggerDokiAction(data.action);
+    if (trigger === 'day_select' && selectedDay !== null) {
+      setSidebarDokiMessage(data, { animate: true });
+    } else if (trigger === 'match_tap' && matchId) {
+      setSidebarDokiMessage(data, { animate: true });
+    } else {
+      setDokiMessage(data, true);
+      triggerDokiAction(data.action);
+    }
     return true;
   } catch {
     if (trigger === 'tap') nextDokiQuoteLocal();
+    else if (trigger === 'day_select' && selectedDay !== null) {
+      setSidebarDokiMessage(buildDayDokiMessage(selectedDay), { animate: false });
+    } else if (trigger === 'match_tap' && matchId) {
+      const m = MATCHES.find((x) => x.id === matchId);
+      if (m) setSidebarDokiMessage(buildMatchDokiMessage(m), { animate: false });
+    }
     return false;
   } finally {
     dokiFetching = false;
@@ -620,33 +988,38 @@ function getFilteredMatches() {
   });
 }
 
+function calendarDateKey(day, month = currentMonth, year = currentYear) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function matchOnCalendarDay(m, day, month = currentMonth, year = currentYear) {
+  return m.date === calendarDateKey(day, month, year);
+}
+
+function isInCalendarMonth(m, month = currentMonth, year = currentYear) {
+  const [y, mo] = m.date.split('-').map(Number);
+  return y === year && mo - 1 === month;
+}
+
 function getVisibleMatches() {
   let list = getFilteredMatches();
 
   if (selectedDay !== null) {
-    list = list.filter(
-      (m) =>
-        m.displayDay === selectedDay &&
-        m.displayMonth === currentMonth &&
-        m.displayYear === currentYear
-    );
+    list = list.filter((m) => matchOnCalendarDay(m, selectedDay));
   } else {
-    list = list.filter(
-      (m) => m.displayMonth === currentMonth && m.displayYear === currentYear
-    );
+    list = list.filter((m) => isInCalendarMonth(m));
   }
 
   return list.sort((a, b) => a.instant - b.instant);
 }
 
+function getAllMatchesForDay(day) {
+  return MATCHES.filter((m) => matchOnCalendarDay(m, day)).sort((a, b) => a.instant - b.instant);
+}
+
 function getMatchesForDay(day) {
   return getFilteredMatches()
-    .filter(
-      (m) =>
-        m.displayDay === day &&
-        m.displayMonth === currentMonth &&
-        m.displayYear === currentYear
-    )
+    .filter((m) => matchOnCalendarDay(m, day))
     .sort((a, b) => a.instant - b.instant);
 }
 
@@ -664,32 +1037,41 @@ function updateTimezoneUI() {
   const label = getTimezoneLabel(displayTz);
   document.getElementById('calendar-hint').textContent = `Horarios en ${label}`;
   document.getElementById('footer-timezone').textContent =
-    `Horarios mostrados en ${label} · Junio–Julio 2026`;
+    `Horarios en ${label} (${abbr}) · tu zona horaria · Junio–Julio 2026`;
   document.title = `Mundial 2026 · ${abbr}`;
 }
 
 function populateTimezoneSelect() {
   const select = document.getElementById('timezone-select');
-  const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (!select) return;
+  select.innerHTML = '';
+  const userTz = getVisitorTimezone();
   const seen = new Set();
 
-  if (userTz && !TIMEZONES.some((t) => t.id === userTz)) {
+  const addOption = (id, label) => {
+    if (seen.has(id)) return;
     const opt = document.createElement('option');
-    opt.value = userTz;
-    opt.textContent = `Tu zona (${userTz})`;
+    opt.value = id;
+    opt.textContent = label;
     select.appendChild(opt);
-    seen.add(userTz);
+    seen.add(id);
+  };
+
+  if (userTz) {
+    const preset = TIMEZONES.find((t) => t.id === userTz);
+    addOption(
+      userTz,
+      preset ? `${preset.label} · tu zona` : `Tu zona · ${getTimezoneLabel(userTz)}`
+    );
   }
 
-  TIMEZONES.forEach((tz) => {
-    const opt = document.createElement('option');
-    opt.value = tz.id;
-    opt.textContent = tz.label;
-    select.appendChild(opt);
-    seen.add(tz.id);
-  });
+  TIMEZONES.forEach((tz) => addOption(tz.id, tz.label));
 
-  if (seen.has(displayTz)) {
+  if (displayTz && !seen.has(displayTz)) {
+    addOption(displayTz, getTimezoneLabel(displayTz));
+  }
+
+  if (displayTz && seen.has(displayTz)) {
     select.value = displayTz;
   } else if (userTz) {
     displayTz = userTz;
@@ -731,11 +1113,20 @@ function isMobileView() {
   return window.matchMedia('(max-width: 860px)').matches;
 }
 
+function updateMobileLayoutState() {
+  const layout = document.getElementById('main-layout');
+  const open = selectedDay !== null && isMobileView();
+  layout?.classList.toggle('layout--day-open', open);
+}
+
 function scrollToMatches() {
   if (!isMobileView()) return;
-  document.getElementById('match-panel')?.scrollIntoView({
-    behavior: 'smooth',
-    block: 'start',
+  updateMobileLayoutState();
+  window.requestAnimationFrame(() => {
+    document.getElementById('match-panel')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
   });
 }
 
@@ -761,7 +1152,7 @@ function renderCalendar() {
 
   const totalDays = daysInMonth(currentYear, currentMonth);
   for (let day = 1; day <= totalDays; day++) {
-    const dayMatches = getMatchesForDay(day);
+    const dayMatches = getAllMatchesForDay(day);
     const cell = document.createElement('div');
     cell.className = 'calendar__day';
     cell.setAttribute('role', 'gridcell');
@@ -773,11 +1164,15 @@ function renderCalendar() {
         renderCalendar();
         renderMatchList();
         if (selectedDay !== null) scrollToMatches();
+        notifyDokiDaySelected();
       });
     }
 
     if (selectedDay === day) cell.classList.add('calendar__day--selected');
     if (isToday(day, currentMonth, currentYear)) cell.classList.add('calendar__day--today');
+    if (dayMatches.length > 0 && isDayInPast(day, currentMonth, currentYear)) {
+      cell.classList.add('calendar__day--past');
+    }
 
     const num = document.createElement('span');
     num.className = 'calendar__day-num';
@@ -792,19 +1187,28 @@ function renderCalendar() {
 
       const events = document.createElement('div');
       events.className = 'calendar__events';
-      dayMatches.slice(0, 2).forEach((m) => {
+      dayMatches.slice(0, isMobileView() ? 1 : 2).forEach((m) => {
         const chip = document.createElement('div');
         const score = getScoreDisplay(m);
-        chip.className = `calendar__event ${m.cssGroup}${score?.status === 'live' ? ' calendar__event--live' : ''}${score?.status === 'finished' ? ' calendar__event--finished' : ''}`;
+        chip.className = `calendar__event ${m.cssGroup}${score?.status === 'live' ? ' calendar__event--live' : ''}${score?.status === 'finished' ? ' calendar__event--finished' : ''}${selectedMatchId === m.id ? ' calendar__event--selected' : ''}`;
         const scoreLine = score ? ` · ${score.line}` : '';
         chip.title = `${m.homeName}${m.awayName ? ' vs. ' + m.awayName : ''}${scoreLine} — ${m.displayTime}`;
         chip.innerHTML = calendarChipContent(m);
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectedDay = day;
+          selectedMatchId = m.id;
+          renderCalendar();
+          renderMatchList();
+          scrollToMatches();
+          notifyDokiMatchSelected(m.id);
+        });
         events.appendChild(chip);
       });
-      if (dayMatches.length > 2) {
+      if (dayMatches.length > (isMobileView() ? 1 : 2)) {
         const more = document.createElement('span');
         more.className = 'calendar__more';
-        more.textContent = `+${dayMatches.length - 2}`;
+        more.textContent = `+${dayMatches.length - (isMobileView() ? 1 : 2)}`;
         events.appendChild(more);
       }
       cell.appendChild(events);
@@ -812,6 +1216,15 @@ function renderCalendar() {
 
     calendar.appendChild(cell);
   }
+  updateMonthNavButtons();
+  updateMobileLayoutState();
+}
+
+function getSidebarMatches() {
+  if (selectedDay === null) {
+    return getFilteredMatches().filter((m) => isInCalendarMonth(m));
+  }
+  return getAllMatchesForDay(selectedDay);
 }
 
 function renderMatchList() {
@@ -820,22 +1233,34 @@ function renderMatchList() {
   const subtitle = document.getElementById('sidebar-subtitle');
   const abbr = getTimezoneAbbr(displayTz);
 
-  const monthMatches = getFilteredMatches().filter(
-    (m) => m.displayMonth === currentMonth && m.displayYear === currentYear
-  );
-  const display = (selectedDay !== null ? getVisibleMatches() : monthMatches).sort((a, b) => {
-    if (a.displayDate !== b.displayDate) return a.displayDate.localeCompare(b.displayDate);
+  const monthMatches = getFilteredMatches().filter((m) => isInCalendarMonth(m));
+  const display = (selectedDay !== null ? getSidebarMatches() : monthMatches).sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
     return a.instant - b.instant;
   });
+
+  if (selectedDay === null) hideSidebarDoki();
 
   title.textContent = selectedDay !== null
     ? `${MONTH_NAMES[currentMonth]} ${selectedDay}`
     : MONTH_NAMES[currentMonth];
 
-  if (activeCountry === 'all') {
-    subtitle.textContent = selectedDay
-      ? `${display.length} partido${display.length === 1 ? '' : 's'}`
-      : `${monthMatches.length} partidos · ${abbr}`;
+  if (selectedDay !== null) {
+    const allDay = getAllMatchesForDay(selectedDay).length;
+    const filteredDay = getMatchesForDay(selectedDay).length;
+    if (display.length > 1) {
+      if (activeCountry !== 'all' && filteredDay < allDay) {
+        subtitle.textContent = `${allDay} partidos del día · ${filteredDay} con tu filtro`;
+      } else {
+        subtitle.textContent = `${display.length} partidos · toca uno para comentario de Doki`;
+      }
+    } else if (activeCountry !== 'all' && filteredDay === 0 && allDay > 0) {
+      subtitle.textContent = `${allDay} partidos del día · ninguno con tu filtro`;
+    } else {
+      subtitle.textContent = `${display.length} partido${display.length === 1 ? '' : 's'} · ${abbr}`;
+    }
+  } else if (activeCountry === 'all') {
+    subtitle.textContent = `${monthMatches.length} partidos · ${abbr}`;
   } else if (activeCountry === 'favorites') {
     subtitle.textContent = '⭐ Mis favoritos';
   } else {
@@ -853,15 +1278,21 @@ function renderMatchList() {
     .join('');
 
   if (display.length === 0) {
+    const totalDay = selectedDay !== null ? getAllMatchesForDay(selectedDay).length : 0;
+    const emptyText = totalDay > 0
+      ? `Hay ${totalDay} partido${totalDay === 1 ? '' : 's'} este día. Cambia el filtro a «Todos» para verlos.`
+      : 'No hay partidos aquí. Sigue esperando con las patitas cruzadas.';
     list.innerHTML = `
     <li class="doki-empty">
       <img src="assets/doki.png" alt="" class="doki-empty__img" width="88" height="88">
       <p class="doki-empty__title">Doki revisó el calendario</p>
-      <p class="doki-empty__text">No hay partidos aquí. Sigue esperando con las patitas cruzadas.</p>
+      <p class="doki-empty__text">${emptyText}</p>
     </li>`;
     updateDokiContext('empty');
+    updateMobileLayoutState();
     return;
   }
+  updateMobileLayoutState();
 }
 
 function getExportMatches() {
@@ -1137,6 +1568,7 @@ async function shareApp() {
 function setTimezone(tz) {
   displayTz = tz;
   localStorage.setItem('wc2026-tz', tz);
+  localStorage.setItem('wc2026-tz-manual', '1');
   selectedDay = null;
   rebuildMatches();
   updateTimezoneUI();
@@ -1298,6 +1730,9 @@ function goTab(tab) {
 }
 
 window.goTab = goTab;
+window.notifyDokiMatchSelected = notifyDokiMatchSelected;
+window.getSelectedMatchId = () => selectedMatchId;
+window.formatMatchGoalsSummary = formatMatchGoalsSummary;
 
 function setupShare() {
   const btn = document.getElementById('share-app');
@@ -1309,30 +1744,33 @@ function setupShare() {
 
 function setupMonthNav() {
   document.getElementById('prev-month').addEventListener('click', () => {
-    currentMonth -= 1;
-    if (currentMonth < 0) {
-      currentMonth = 11;
-      currentYear -= 1;
-    }
+    const idx = tournamentMonthIndex(currentYear, currentMonth);
+    if (idx <= 0) return;
+    const prev = TOURNAMENT_MONTHS[idx - 1];
+    currentYear = prev.year;
+    currentMonth = prev.month;
     selectedDay = null;
     renderCalendar();
     renderMatchList();
+    notifyDokiDaySelected();
   });
 
   document.getElementById('next-month').addEventListener('click', () => {
-    currentMonth += 1;
-    if (currentMonth > 11) {
-      currentMonth = 0;
-      currentYear += 1;
-    }
+    const idx = tournamentMonthIndex(currentYear, currentMonth);
+    if (idx < 0 || idx >= TOURNAMENT_MONTHS.length - 1) return;
+    const next = TOURNAMENT_MONTHS[idx + 1];
+    currentYear = next.year;
+    currentMonth = next.month;
     selectedDay = null;
     renderCalendar();
     renderMatchList();
+    notifyDokiDaySelected();
   });
 }
 
 function init() {
   loadPrefs();
+  initDisplayTimezone();
   populateTimezoneSelect();
   populateCountryFilter();
 
@@ -1343,6 +1781,7 @@ function init() {
   document.getElementById('include-knockouts').checked = includeKnockouts;
 
   rebuildMatches();
+  syncCalendarMonthToToday();
   updateTimezoneUI();
   renderCalendar();
   renderMatchList();
@@ -1361,6 +1800,16 @@ function init() {
   requestAnimationFrame(bootFeaturePanels);
   setTimeout(bootFeaturePanels, 50);
   window.addEventListener('load', bootFeaturePanels, { once: true });
+  let wasMobile = isMobileView();
+  window.addEventListener('resize', () => {
+    updateMobileLayoutState();
+    const nowMobile = isMobileView();
+    if (nowMobile !== wasMobile) {
+      wasMobile = nowMobile;
+      renderCalendar();
+    }
+  }, { passive: true });
+  updateMobileLayoutState();
   window.__wcAppReady = true;
 }
 
@@ -1368,7 +1817,7 @@ async function bootAsync() {
   renderNextMatchBanner();
   lastFinishedCount = 0;
 
-  const scoresOk = await fetchScores({ silent: true });
+  const scoresOk = await fetchScores({ silent: true, force: true });
   if (scoresOk) {
     lastFinishedCount = Object.values(SCORES_CACHE).filter((s) => s?.status === 'finished').length;
     requestDokiAI('auto', { force: true });
@@ -1376,8 +1825,9 @@ async function bootAsync() {
     updateDokiContext();
   }
 
+  scheduleScoresPoll();
+  setupScoresRefresh();
   startCountdownTimer();
-  startScoresPolling();
   startDokiAuto();
   ensureFeaturePanels();
 }

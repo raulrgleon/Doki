@@ -418,6 +418,11 @@ body {
   opacity: 0.88;
 }
 
+.calendar__event--selected {
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 @keyframes dokiSpin {
   from { transform: rotate(0) scale(1); }
   to { transform: rotate(360deg) scale(1.05); }
@@ -684,6 +689,55 @@ body {
   align-items: flex-start;
 }
 
+.sidebar-doki {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  margin-bottom: 0.85rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.sidebar-doki--pop {
+  animation: sidebar-doki-pop 0.35s ease;
+}
+
+.sidebar-doki--loading {
+  opacity: 0.85;
+}
+
+.sidebar-doki__img {
+  flex-shrink: 0;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.sidebar-doki__copy {
+  min-width: 0;
+}
+
+.sidebar-doki__quote {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.sidebar-doki__hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+@keyframes sidebar-doki-pop {
+  0% { transform: scale(0.98); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .panel__title-wrap {
   text-align: center;
   flex: 1;
@@ -767,6 +821,20 @@ body {
   background: var(--accent-soft);
 }
 
+.calendar__day--past:not(.calendar__day--selected) {
+  opacity: 0.88;
+}
+
+.calendar__day--past .calendar__day-num {
+  color: var(--text-secondary);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .calendar__day-num {
   display: block;
   font-size: 0.875rem;
@@ -815,6 +883,30 @@ body {
 .calendar__event span:first-child {
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+}
+
+.calendar__event-flags {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.calendar__event-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.calendar__event-status {
+  flex-shrink: 0;
+  font-size: 0.5rem;
+  line-height: 1;
 }
 
 .calendar__more {
@@ -923,6 +1015,16 @@ body {
   margin-top: 1.5rem;
   font-size: 0.8125rem;
   color: var(--text-tertiary);
+}
+
+.scores-status {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.scores-status--warn {
+  color: var(--orange);
 }
 
 .modal {
@@ -1280,18 +1382,30 @@ body {
 
 /* ── iPhone & mobile ── */
 @media (max-width: 430px) {
+  .app {
+    padding:
+      max(0.5rem, env(safe-area-inset-top))
+      max(0.65rem, env(safe-area-inset-right))
+      max(1rem, env(safe-area-inset-bottom))
+      max(0.65rem, env(safe-area-inset-left));
+  }
+
   .header {
-    margin-bottom: 1rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .header__row {
+    align-items: center;
   }
 
   .next-match {
     flex-direction: column;
     align-items: flex-start;
-    padding: 0.85rem 1rem;
   }
 
   .next-match__countdown {
     text-align: left;
+    font-size: 1.125rem;
   }
 
   .controls__actions {
@@ -1302,61 +1416,18 @@ body {
     width: 100%;
   }
 
-  .doki-hero {
-    padding: 0.85rem;
-    gap: 0.75rem;
-  }
-
-  .doki-hero__quote {
-    font-size: 1rem;
-  }
-
-  .doki-hero__img {
-    width: 84px;
-    height: 84px;
-    border-radius: 18px;
-  }
-
-  .header h1 {
-    font-size: 1.75rem;
-  }
-
-  .header__subtitle {
-    font-size: 0.875rem;
-  }
-
-  .controls {
-    padding: 0.85rem;
-    border-radius: var(--radius);
-    gap: 0.75rem;
-  }
-
-  .panel {
-    padding: 0.75rem;
-    border-radius: var(--radius);
-  }
-
-  .panel--sidebar {
-    position: static;
-  }
-
-  .panel__header h2 {
-    font-size: 1.125rem;
-  }
-
   .calendar {
     gap: 2px;
   }
 
   .calendar__weekday {
     font-size: 0.5625rem;
-    padding: 0.25rem 0 0.35rem;
-    letter-spacing: 0;
+    padding: 0.2rem 0 0.3rem;
   }
 
   .calendar__day {
-    min-height: 54px;
-    padding: 0.2rem 0.1rem;
+    min-height: 58px;
+    padding: 0.15rem 0.05rem;
     border-radius: 8px;
   }
 
@@ -1365,49 +1436,53 @@ body {
   }
 
   .calendar__count {
-    top: 2px;
-    right: 2px;
-    min-width: 14px;
-    height: 14px;
+    top: 1px;
+    right: 1px;
+    min-width: 15px;
+    height: 15px;
     font-size: 0.5625rem;
-    line-height: 14px;
+    line-height: 15px;
   }
 
   .calendar__events {
     gap: 1px;
-    margin-top: 0.15rem;
+    margin-top: 0.1rem;
   }
 
   .calendar__event {
     justify-content: center;
-    padding: 1px 2px;
-    font-size: 0.5rem;
+    gap: 1px;
+    padding: 2px 1px;
     border-left-width: 0;
-    border-radius: 3px;
+    border-radius: 4px;
   }
 
-  .calendar__event span:last-child {
+  .calendar__event-status {
     display: none;
   }
 
+  .calendar__event-flags {
+    font-size: 0.75rem;
+    line-height: 1.1;
+  }
+
+  /* Marcador compacto junto a banderas en celdas pequeñas */
+  .calendar__event-main {
+    display: block;
+    font-size: 0.4375rem;
+    max-width: 2.4em;
+    text-align: center;
+    line-height: 1.1;
+  }
+
   .calendar__more {
-    font-size: 0.5rem;
+    font-size: 0.5625rem;
+    font-weight: 700;
   }
 
-  .match-list {
-    max-height: none;
-  }
-
-  .match-card {
-    padding: 0.75rem 0.85rem;
-  }
-
-  .match-card__time {
-    font-size: 1rem;
-  }
-
-  .match-card__teams {
-    font-size: 0.875rem;
+  .segmented__btn {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.25rem;
   }
 
   .export-mode {
@@ -1424,7 +1499,11 @@ body {
 
   .pill {
     min-height: 44px;
-    padding: 0.5rem 0.85rem;
+  }
+
+  .pill--sm {
+    min-height: 36px;
+    font-size: 0.75rem;
   }
 
   .search {
@@ -1434,7 +1513,6 @@ body {
 
   .export-team {
     min-height: 48px;
-    padding: 0.65rem 0.85rem;
   }
 
   .export-team input {
@@ -1448,6 +1526,10 @@ body {
 
   .modal__header {
     padding-top: 0.25rem;
+  }
+
+  .layout--day-open .next-match {
+    display: none;
   }
 }
 
@@ -1464,8 +1546,167 @@ body {
     gap: 0.75rem;
   }
 
+  .layout--day-open .doki-hero {
+    display: none;
+  }
+
   .panel--sidebar {
     position: static;
+    scroll-margin-top: max(0.75rem, env(safe-area-inset-top));
+  }
+
+  #match-panel {
+    border-top: 3px solid var(--accent-soft);
+    padding-top: 0.85rem;
+  }
+
+  .app-tabs {
+    margin-left: calc(-1 * max(0rem, env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(0rem, env(safe-area-inset-right)));
+    padding-left: max(0.35rem, env(safe-area-inset-left));
+    padding-right: max(0.35rem, env(safe-area-inset-right));
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .app-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .app-tab {
+    min-height: 44px;
+    padding: 0.55rem 0.9rem;
+    scroll-snap-align: start;
+  }
+
+  .doki-hero {
+    padding: 0.85rem;
+    gap: 0.75rem;
+  }
+
+  .doki-hero__img {
+    width: 72px;
+    height: 72px;
+  }
+
+  .doki-hero__quote {
+    font-size: 1rem;
+  }
+
+  .controls {
+    padding: 0.85rem;
+    gap: 0.75rem;
+  }
+
+  .panel {
+    padding: 0.85rem;
+  }
+
+  .panel__header h2 {
+    font-size: 1.125rem;
+  }
+
+  .calendar__day--has-match {
+    min-height: 60px;
+  }
+
+.calendar__day--has-match:active {
+  transform: scale(0.98);
+}
+
+  .calendar__event {
+    min-height: 20px;
+    padding: 2px 4px;
+  }
+
+  .calendar__event-flags {
+    font-size: 0.6875rem;
+  }
+
+  .calendar__event-main {
+    font-size: 0.5rem;
+  }
+
+  .match-list {
+    max-height: none;
+    gap: 0.65rem;
+  }
+
+  .match-card {
+    padding: 0.85rem 1rem;
+    min-height: 44px;
+  }
+
+  .match-card__teams {
+    font-size: 0.9375rem;
+    line-height: 1.35;
+  }
+
+  .match-card__actions {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .match-card__tap-hint {
+    flex: 1 1 100%;
+    font-size: 0.75rem;
+  }
+
+  .sidebar-doki {
+    padding: 0.65rem;
+  }
+
+  .sidebar-doki__quote {
+    font-size: 0.875rem;
+  }
+
+  .standings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .standings-table {
+    font-size: 0.75rem;
+  }
+
+  .standings-table th,
+  .standings-table td {
+    padding: 0.35rem 0.2rem;
+  }
+
+  .bracket-match {
+    min-height: 44px;
+    padding: 0.65rem;
+    font-size: 0.75rem;
+  }
+
+  .venues-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .venue-card {
+    min-height: 44px;
+  }
+
+  .view-panel {
+    padding: 0.85rem;
+  }
+
+  .next-match {
+    padding: 0.85rem 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.75rem;
+  }
+
+  .header__subtitle {
+    font-size: 0.875rem;
+  }
+
+  .icon-btn {
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -1473,15 +1714,25 @@ body {
 @media (max-width: 360px) {
   .segmented__btn {
     font-size: 0.6875rem;
-    padding: 0.5rem 0.2rem;
+    padding: 0.45rem 0.15rem;
   }
 
   .calendar__day {
-    min-height: 48px;
+    min-height: 54px;
   }
 
-  .calendar__event {
-    font-size: 0.4375rem;
+  .calendar__event-flags {
+    font-size: 0.6875rem;
+  }
+
+  .calendar__event-main {
+    font-size: 0.4rem;
+    max-width: 2.2em;
+  }
+
+  .app-tab {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.65rem;
   }
 }
 
@@ -1722,12 +1973,63 @@ body {
   color: var(--text-secondary);
 }
 
+.venues-detail {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--separator);
+  scroll-margin-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.venues-detail__header {
+  margin-bottom: 0.75rem;
+}
+
+.venues-detail__header h3 {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+}
+
+#venues-match-list {
+  max-height: none;
+}
+
 .match-card--highlight {
   outline: 2px solid var(--accent);
   box-shadow: var(--shadow-lg);
 }
 
+.match-card--selected {
+  background: var(--accent-soft);
+}
+
+.match-card--dim {
+  opacity: 0.72;
+}
+
+.match-card[data-match-id] {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.match-card__goals {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.match-card__tap-hint {
+  font-size: 0.6875rem;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
 .match-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin-top: 0.35rem;
 }
 

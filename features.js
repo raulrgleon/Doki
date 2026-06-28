@@ -152,15 +152,52 @@ const WCFeatures = (() => {
   function renderAgenda() {
     const el = document.getElementById('agenda-list');
     if (!el) return;
-    const now = Date.now();
-    const upcoming = getFilteredMatches()
-      .filter((m) => m.instant.getTime() >= now - 3 * 3600000)
-      .sort((a, b) => a.instant - b.instant);
-    el.innerHTML = groupMatchesByDate(upcoming).map((item) => {
+    const all = getFilteredMatches().sort((a, b) => a.instant - b.instant);
+    el.innerHTML = groupMatchesByDate(all).map((item) => {
       if (item.type === 'header') return `<li class="match-day-header">${item.label}</li>`;
       return renderMatchCardInteractive(item.match);
     }).join('');
     bindMatchListActions(el);
+  }
+
+  function renderVenueMatches() {
+    const detail = document.getElementById('venues-detail');
+    const list = document.getElementById('venues-match-list');
+    const title = document.getElementById('venues-detail-title');
+    const subtitle = document.getElementById('venues-detail-subtitle');
+    const hint = document.getElementById('venues-hint');
+    if (!detail || !list) return;
+
+    if (!activeVenue) {
+      detail.hidden = true;
+      if (hint) hint.textContent = 'Toca una sede para ver sus partidos';
+      return;
+    }
+
+    const meta = VENUES[activeVenue] || { country: '🏟️', city: activeVenue };
+    const matches = MATCHES.filter((m) => m.venue === activeVenue).sort((a, b) => a.instant - b.instant);
+    const abbr = getTimezoneAbbr(displayTz);
+
+    detail.hidden = false;
+    if (hint) hint.textContent = `Partidos en ${meta.city}`;
+    if (title) title.textContent = `${meta.country} ${meta.city}`;
+    if (subtitle) {
+      subtitle.textContent = `${matches.length} partido${matches.length === 1 ? '' : 's'} · horarios en ${abbr}`;
+    }
+
+    list.innerHTML = groupMatchesByDate(matches)
+      .map((item) => {
+        if (item.type === 'header') return `<li class="match-day-header">${item.label}</li>`;
+        return renderMatchCardInteractive(item.match);
+      })
+      .join('');
+    bindMatchListActions(list);
+
+    if (window.matchMedia('(max-width: 860px)').matches) {
+      window.requestAnimationFrame(() => {
+        detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
   }
 
   function renderVenues() {
@@ -182,13 +219,14 @@ const WCFeatures = (() => {
       btn.addEventListener('click', () => {
         activeVenue = activeVenue === btn.dataset.venue ? null : btn.dataset.venue;
         saveFeaturePrefs();
-        setActiveTab('calendar');
         renderVenues();
+        renderVenueMatches();
         renderCalendar();
         renderMatchList();
         renderTodayWidget();
       });
     });
+    renderVenueMatches();
   }
 
   function renderTodayWidget() {
@@ -217,9 +255,10 @@ const WCFeatures = (() => {
 
   function renderMatchCardInteractive(m) {
     const score = getScoreDisplay(m);
-    const highlight = highlightedMatchId === m.id ? ' match-card--highlight' : '';
+    const selected = (window.getSelectedMatchId?.() ?? highlightedMatchId) === m.id;
+    const highlight = selected ? ' match-card--highlight match-card--selected' : '';
     return `
-    <li class="${matchCardClasses(m)}${highlight}" data-match-id="${m.id}" tabindex="0">
+    <li class="${matchCardClasses(m)}${highlight}" data-match-id="${m.id}" tabindex="0" role="button" aria-label="Ver comentario de Doki sobre ${m.homeName} vs ${m.awayName || ''}">
       <div class="match-card__top">
         <span class="match-card__time">${m.displayTime}</span>
         <span class="match-card__badge">${m.groupLabel}</span>
@@ -227,7 +266,9 @@ const WCFeatures = (() => {
       ${matchScoreHtml(m)}
       <p class="match-card__teams">${m.homeFlag} ${m.homeName}${m.awayName ? `<span class="match-card__vs">vs</span>${m.awayFlag} ${m.awayName}` : ''}</p>
       <p class="match-card__meta">${m.venue}</p>
+      ${score?.status === 'finished' && m.score?.goals?.length ? `<p class="match-card__goals">${window.formatMatchGoalsSummary?.(m) || ''}</p>` : ''}
       <div class="match-card__actions">
+        <span class="match-card__tap-hint">Toca para comentario de Doki 🐾</span>
         <button type="button" class="pill pill--sm" data-share-match="${m.id}">Compartir</button>
       </div>
     </li>`;
@@ -256,22 +297,9 @@ const WCFeatures = (() => {
     const m = MATCHES.find((x) => x.id === id);
     if (!m) return;
     highlightedMatchId = id;
-    dokiManualOverride = true;
-    const ctx = getDokiContextPayload();
-    ctx.tappedMatch = {
-      teams: m.awayName ? `${m.homeName} vs ${m.awayName}` : m.homeName,
-      when: `${m.dayLabel} ${m.displayTime}`,
-      venue: m.venue,
-      score: m.score ? `${m.score.homeScore}-${m.score.awayScore}` : null,
-    };
-    fetch('/api/doki', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trigger: 'match_tap', context: ctx }),
-    })
-      .then((r) => r.json())
-      .then((data) => { setDokiMessage(data, true); triggerDokiAction(data.action); })
-      .catch(() => setDokiMessage({ quote: `${m.homeFlag} ${m.homeName}… Doki lo tiene en la mira`, hint: m.venue }, true));
+    if (window.notifyDokiMatchSelected) {
+      window.notifyDokiMatchSelected(id);
+    }
     renderMatchList();
     renderAgenda();
   }
@@ -497,6 +525,7 @@ const WCFeatures = (() => {
 
       bindMatchListActions(document.getElementById('match-list'));
       bindMatchListActions(document.getElementById('agenda-list'));
+      bindMatchListActions(document.getElementById('venues-match-list'));
 
       if (localStorage.getItem('wc2026-notif') === 'true') scheduleNotifications();
       const labels = { auto: 'Auto', light: 'Claro', dark: 'Oscuro' };

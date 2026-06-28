@@ -3,7 +3,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { getScoresForMatches } from './lib/espn-scores.js';
+import { getScoresForMatches, getScoresMeta, startScoresBackgroundRefresh } from './lib/espn-scores.js';
 import { generateDokiMessage } from './lib/doki-ai.js';
 import { generateWebcal } from './lib/ics.js';
 
@@ -40,9 +40,11 @@ app.get('/api/health', async (_req, res) => {
 
 app.get('/api/scores', async (req, res) => {
   try {
-    const force = req.query.refresh === '1';
+    const force = req.query.refresh === '1' || req.query.force === '1';
     const scores = await getScoresForMatches({ force });
-    res.json({ scores, updatedAt: new Date().toISOString() });
+    const meta = getScoresMeta();
+    res.set('Cache-Control', 'no-store');
+    res.json({ scores, updatedAt: meta.updatedAt || new Date().toISOString(), meta });
   } catch (err) {
     console.error('scores error', err.message);
     res.status(502).json({ error: 'No se pudieron obtener resultados' });
@@ -98,6 +100,7 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🐾 Doki v2 en http://localhost:${PORT}`);
+  startScoresBackgroundRefresh();
   if (!process.env.OPENAI_API_KEY) {
     console.warn('⚠️  OPENAI_API_KEY no definida');
   }
