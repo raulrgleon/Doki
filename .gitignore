@@ -1,6 +1,7 @@
 .DS_Store
 Archive.zip
 *.zip
+*.bak
 .gh-config/
 .env
 node_modules/
