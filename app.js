@@ -177,11 +177,13 @@ function teamFlag(id) {
 function buildBaseMatch(raw) {
   const venueTz = VENUE_TZ[raw.venue];
   const instant = parseInTimeZone(raw.date, raw.time, venueTz);
-  const homeName = raw.knockout ? raw.home : teamName(raw.home);
-  const awayName = raw.knockout ? raw.away : teamName(raw.away);
-  const homeFlag = raw.knockout ? '🏆' : teamFlag(raw.home);
-  const awayFlag = raw.knockout ? '' : teamFlag(raw.away);
-  const teamIds = raw.knockout ? [] : [raw.home, raw.away];
+  const hasHomeTeam = Boolean(TEAMS[raw.home]);
+  const hasAwayTeam = Boolean(TEAMS[raw.away]);
+  const homeName = raw.knockout && !hasHomeTeam ? raw.home : teamName(raw.home);
+  const awayName = raw.knockout && !hasAwayTeam ? raw.away : teamName(raw.away);
+  const homeFlag = hasHomeTeam ? teamFlag(raw.home) : '🏆';
+  const awayFlag = hasAwayTeam ? teamFlag(raw.away) : '';
+  const teamIds = [raw.home, raw.away].filter((id) => TEAMS[id]);
 
   return {
     ...raw,

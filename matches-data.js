@@ -726,8 +726,8 @@ const RAW_MATCHES = [
     "date": "2026-06-28",
     "time": "12:00",
     "venue": "Los Angeles",
-    "home": "2º Grupo A vs 2º Grupo B",
-    "away": "",
+    "home": "south-africa",
+    "away": "canada",
     "knockout": true
   },
   {
@@ -737,8 +737,8 @@ const RAW_MATCHES = [
     "date": "2026-06-29",
     "time": "16:30",
     "venue": "Boston",
-    "home": "1º Grupo E vs 3º A/B/C/D/F",
-    "away": "",
+    "home": "germany",
+    "away": "paraguay",
     "knockout": true
   },
   {
@@ -748,8 +748,8 @@ const RAW_MATCHES = [
     "date": "2026-06-29",
     "time": "19:00",
     "venue": "Monterrey",
-    "home": "1º Grupo F vs 2º Grupo C",
-    "away": "",
+    "home": "netherlands",
+    "away": "morocco",
     "knockout": true
   },
   {
@@ -759,8 +759,8 @@ const RAW_MATCHES = [
     "date": "2026-06-29",
     "time": "12:00",
     "venue": "Houston",
-    "home": "1º Grupo C vs 2º Grupo F",
-    "away": "",
+    "home": "brazil",
+    "away": "japan",
     "knockout": true
   },
   {
@@ -770,8 +770,8 @@ const RAW_MATCHES = [
     "date": "2026-06-30",
     "time": "17:00",
     "venue": "New York/New Jersey",
-    "home": "1º Grupo I vs 3º C/D/F/G/H",
-    "away": "",
+    "home": "france",
+    "away": "sweden",
     "knockout": true
   },
   {
@@ -781,8 +781,8 @@ const RAW_MATCHES = [
     "date": "2026-06-30",
     "time": "12:00",
     "venue": "Dallas",
-    "home": "2º Grupo E vs 2º Grupo I",
-    "away": "",
+    "home": "ivory-coast",
+    "away": "norway",
     "knockout": true
   },
   {
@@ -792,8 +792,8 @@ const RAW_MATCHES = [
     "date": "2026-06-30",
     "time": "19:00",
     "venue": "Mexico City",
-    "home": "1º Grupo A vs 3º C/E/F/H/I",
-    "away": "",
+    "home": "mexico",
+    "away": "ecuador",
     "knockout": true
   },
   {
@@ -803,8 +803,8 @@ const RAW_MATCHES = [
     "date": "2026-07-01",
     "time": "12:00",
     "venue": "Atlanta",
-    "home": "1º Grupo L vs 3º E/H/I/J/K",
-    "away": "",
+    "home": "england",
+    "away": "congo-dr",
     "knockout": true
   },
   {
@@ -814,8 +814,8 @@ const RAW_MATCHES = [
     "date": "2026-07-01",
     "time": "17:00",
     "venue": "San Francisco Bay Area",
-    "home": "1º Grupo D vs 3º B/E/F/I/J",
-    "away": "",
+    "home": "usa",
+    "away": "bosnia-herzegovina",
     "knockout": true
   },
   {
@@ -825,8 +825,8 @@ const RAW_MATCHES = [
     "date": "2026-07-01",
     "time": "13:00",
     "venue": "Seattle",
-    "home": "1º Grupo G vs 3º A/E/H/I/J",
-    "away": "",
+    "home": "belgium",
+    "away": "senegal",
     "knockout": true
   },
   {
@@ -836,8 +836,8 @@ const RAW_MATCHES = [
     "date": "2026-07-02",
     "time": "19:00",
     "venue": "Toronto",
-    "home": "2º Grupo K vs 2º Grupo L",
-    "away": "",
+    "home": "portugal",
+    "away": "croatia",
     "knockout": true
   },
   {
@@ -847,8 +847,8 @@ const RAW_MATCHES = [
     "date": "2026-07-02",
     "time": "12:00",
     "venue": "Los Angeles",
-    "home": "1º Grupo H vs 2º Grupo J",
-    "away": "",
+    "home": "spain",
+    "away": "austria",
     "knockout": true
   },
   {
@@ -858,8 +858,8 @@ const RAW_MATCHES = [
     "date": "2026-07-02",
     "time": "20:00",
     "venue": "Vancouver",
-    "home": "1º Grupo B vs 3º E/F/G/I/J",
-    "away": "",
+    "home": "switzerland",
+    "away": "algeria",
     "knockout": true
   },
   {
@@ -869,8 +869,8 @@ const RAW_MATCHES = [
     "date": "2026-07-03",
     "time": "18:00",
     "venue": "Miami",
-    "home": "1º Grupo J vs 2º Grupo H",
-    "away": "",
+    "home": "argentina",
+    "away": "cape-verde",
     "knockout": true
   },
   {
@@ -880,8 +880,8 @@ const RAW_MATCHES = [
     "date": "2026-07-03",
     "time": "20:30",
     "venue": "Kansas City",
-    "home": "1º Grupo K vs 3º D/E/I/J/L",
-    "away": "",
+    "home": "colombia",
+    "away": "ghana",
     "knockout": true
   },
   {
@@ -891,8 +891,8 @@ const RAW_MATCHES = [
     "date": "2026-07-03",
     "time": "13:00",
     "venue": "Dallas",
-    "home": "2º Grupo D vs 2º Grupo G",
-    "away": "",
+    "home": "australia",
+    "away": "egypt",
     "knockout": true
   },
   {
